@@ -1,6 +1,6 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
+ * Bookitallpartner App
+ * Production-grade React Native app with New Architecture support
  *
  * @format
  */
@@ -11,15 +11,24 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        // In production, send to error reporting service
+        // Example: Sentry.captureException(error, { extra: errorInfo });
+        console.error('App Error:', error, errorInfo);
+      }}
+    >
+      <SafeAreaProvider>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <AppContent />
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 

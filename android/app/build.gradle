@@ -56,6 +56,7 @@ react {
 
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
+ * For production, enable this to reduce APK size and obfuscate code.
  */
 def enableProguardInReleaseBuilds = false
 
@@ -84,6 +85,11 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        
+        // Fix for C++ linking: Ensure libc++ is available
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
     }
     signingConfigs {
         debug {
@@ -96,13 +102,72 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            // Enable source maps for debugging
+            debuggable true
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
+            shrinkResources enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            // Disable debugging in release builds
+            debuggable false
+        }
+    }
+    
+    // Production-grade build optimizations
+    packagingOptions {
+        pickFirst 'lib/x86/libc++_shared.so'
+        pickFirst 'lib/x86_64/libc++_shared.so'
+        pickFirst 'lib/armeabi-v7a/libc++_shared.so'
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+    }
+}
+
+// Fix for C++ linking issues with New Architecture
+// This ensures libc++ is properly linked for autolinked libraries
+// The issue is that React Native's autolinking doesn't properly configure STL
+afterEvaluate {
+    // Patch build.ninja files to add libc++ linking after CMake configuration
+    tasks.matching { 
+        it.name.matches(".*configureCMake.*")
+    }.configureEach { task ->
+        doLast {
+            // Find and patch build.ninja files in .cxx directory
+            def cxxBaseDir = file("${project.projectDir}/.cxx")
+            if (cxxBaseDir.exists()) {
+                cxxBaseDir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+                    if (file.name == "build.ninja") {
+                        def content = file.text
+                        def modified = false
+                        def newContent = content
+                        
+                        // Patch LINK_LIBRARIES for react_codegen targets to include -lc++
+                        // Match any LINK_LIBRARIES line that ends with -latomic -lm and add -lc++ before it
+                        // This handles both appmodules and individual react_codegen_* targets
+                        if (content.contains("LINK_LIBRARIES") && content.contains("libreactnative") && content.contains("-latomic")) {
+                            // Use regex to find and replace LINK_LIBRARIES lines
+                            newContent = newContent.replaceAll(
+                                /(LINK_LIBRARIES = [^\n]*libreactnative[^\n]*")(\s+-latomic\s+-lm)/,
+                                { match ->
+                                    if (!match[0].contains("-lc++")) {
+                                        modified = true
+                                        return match[1] + " -lc++" + match[2]
+                                    }
+                                    return match[0]
+                                }
+                            )
+                        }
+                        
+                        if (modified) {
+                            file.text = newContent
+                            println "✅ Patched build.ninja to link libc++: ${file.path}"
+                        }
+                    }
+                }
+            }
         }
     }
 }

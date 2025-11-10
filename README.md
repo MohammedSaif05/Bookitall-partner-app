@@ -1,4 +1,20 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Bookitallpartner
+
+This is a production-grade [**React Native**](https://reactnative.dev) project with **New Architecture** (Fabric + TurboModules) enabled, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+
+## ✨ Features
+
+- ✅ **New Architecture Enabled**: Fully configured with Fabric renderer and TurboModules
+- ✅ **Production-Ready**: Error boundaries, TypeScript strict mode, comprehensive testing setup
+- ✅ **Modern Stack**: React Native 0.82.1, React 19.1.1, TypeScript 5.8.3
+- ✅ **Hermes Engine**: Enabled for optimal performance
+- ✅ **Code Quality**: ESLint, Prettier, and comprehensive TypeScript configuration
+
+## 📚 Documentation
+
+- **[NEW_ARCHITECTURE_MIGRATION_GUIDE.md](./NEW_ARCHITECTURE_MIGRATION_GUIDE.md)** - **⭐ Complete step-by-step guide** for migrating any React Native project to New Architecture (includes all fixes and solutions)
+- **[NEW_ARCHITECTURE.md](./NEW_ARCHITECTURE.md)** - Current project's New Architecture setup and configuration
+- **[PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md)** - Pre-deployment checklist for production releases
 
 # Getting Started
 
