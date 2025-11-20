@@ -11,7 +11,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['System', 'sans-serif'],
+        sans: ['Manrope', 'System', 'sans-serif'],
+        manrope: ['Manrope', 'System', 'sans-serif'],
       },
     },
   },
