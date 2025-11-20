@@ -5,6 +5,7 @@
  * @format
  */
 
+import { useState } from 'react';
 import { NewAppScreen } from '@react-native/new-app-screen';
 import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import {
@@ -12,9 +13,11 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import SplashScreen from './src/components/SplashScreen';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
+  const [isSplashVisible, setIsSplashVisible] = useState(true);
 
   return (
     <ErrorBoundary
@@ -26,7 +29,13 @@ function App() {
     >
       <SafeAreaProvider>
         <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        <AppContent />
+        {isSplashVisible ? (
+          <SplashScreen
+            onAnimationComplete={() => setIsSplashVisible(false)}
+          />
+        ) : (
+          <AppContent />
+        )}
       </SafeAreaProvider>
     </ErrorBoundary>
   );
