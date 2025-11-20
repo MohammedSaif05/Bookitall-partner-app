@@ -6,12 +6,16 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, StyleSheet, View } from 'react-native';
-import RNBootSplash from 'react-native-bootsplash';
+import { Animated, Dimensions, Image, View } from 'react-native';
+import { cssInterop } from 'nativewind';
+import { metrics } from '../theme/scaling';
 
 interface SplashScreenProps {
   onAnimationComplete?: () => void;
 }
+
+const AnimatedContainer = cssInterop(Animated.View, { className: 'style' });
+const AnimatedCircle = cssInterop(Animated.View, { className: 'style' });
 
 function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -20,7 +24,7 @@ function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Small delay to ensure native splash is visible first
+    // Small delay to ensure smooth transition
     const timer = setTimeout(() => {
       // Animation sequence:
       // 1. Rotate 220 degrees clockwise (0 -> 220)
@@ -59,11 +63,9 @@ function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
 
       animation.start(() => {
         setIsVisible(false);
-        // Hide native splash screen after animation completes
-        RNBootSplash.hide({ fade: false });
         onAnimationComplete?.();
       });
-    }, 300); // Small delay to show native splash first
+    }, 100); // Small delay for smooth transition
 
     return () => clearTimeout(timer);
   }, [rotateAnim, scaleAnim, circleScaleAnim, onAnimationComplete]);
@@ -77,14 +79,21 @@ function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
     return null;
   }
 
-  // Calculate screen dimensions for the circle explosion
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   // Calculate the diagonal to ensure the circle covers the entire screen
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   const diagonal = Math.sqrt(
     Math.pow(screenWidth, 2) + Math.pow(screenHeight, 2)
   );
-  // Scale factor to make circle cover entire screen (starting from 50px radius)
-  const maxScale = diagonal / 50;
+  const circleBaseRadius = metrics.splashCircle.diameter / 2;
+  const maxScale = diagonal / circleBaseRadius;
+
+  // Calculate center position for the circle
+  const circleCenterX = screenWidth / 2 - circleBaseRadius;
+  const circleCenterY = screenHeight / 2 - circleBaseRadius;
+
+  // Calculate center position for the logo container
+  const logoCenterX = screenWidth / 2 - metrics.logo.width / 2;
+  const logoCenterY = screenHeight / 2 - metrics.logo.height / 2;
 
   const circleScale = circleScaleAnim.interpolate({
     inputRange: [0, 1],
@@ -92,66 +101,56 @@ function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
   });
 
   return (
-    <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.logoContainer,
-          {
-            transform: [
-              { rotate: rotateInterpolate },
-              { scale: scaleAnim },
-            ],
-          },
-        ]}
+    <View 
+      className="absolute inset-0 overflow-hidden"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#222222', // bg-brand-primary color - set inline for immediate rendering
+        zIndex: 9999,
+      }}
+    >
+      <AnimatedContainer
+        className="absolute"
+        style={{
+          top: logoCenterY,
+          left: logoCenterX,
+          width: metrics.logo.width,
+          height: metrics.logo.height,
+          transform: [
+            { rotate: rotateInterpolate },
+            { scale: scaleAnim },
+          ],
+        }}
       >
         <Image
           source={require('../../assets/bootsplash/logo.png')}
-          style={styles.logo}
+          style={{
+            width: metrics.logo.width,
+            height: metrics.logo.height,
+          }}
           resizeMode="contain"
         />
-      </Animated.View>
-      
+      </AnimatedContainer>
+
       {/* White circle that explodes after shrink */}
-      <Animated.View
-        style={[
-          styles.explosionCircle,
-          {
-            transform: [{ scale: circleScale }],
-          },
-        ]}
+      <AnimatedCircle
+        className="absolute rounded-full bg-white"
+        style={{
+          width: metrics.splashCircle.diameter,
+          height: metrics.splashCircle.diameter,
+          borderRadius: circleBaseRadius,
+          transform: [{ scale: circleScale }],
+          top: circleCenterY,
+          left: circleCenterX,
+        }}
       />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#222222',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 9999,
-    overflow: 'hidden',
-  },
-  logoContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  logo: {
-    width: 150,
-    height: 171,
-  },
-  explosionCircle: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFFFFF',
-    alignSelf: 'center',
-    zIndex: 2,
-  },
-});
 
 export default SplashScreen;
 
