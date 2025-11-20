@@ -109,7 +109,7 @@ function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: '#222222', // bg-brand-primary color - set inline for immediate rendering
+        backgroundColor: '#222222',
         zIndex: 9999,
       }}
     >
