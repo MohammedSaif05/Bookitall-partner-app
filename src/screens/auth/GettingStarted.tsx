@@ -57,7 +57,7 @@ type GettingStartedProps = AuthStackScreenProps<'GettingStarted'>;
 /**
  * GettingStarted - Onboarding screen component
  */
-const GettingStarted: React.FC<GettingStartedProps> = ({ navigation: _navigation }) => {
+const GettingStarted: React.FC<GettingStartedProps> = ({ navigation }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -72,12 +72,10 @@ const GettingStarted: React.FC<GettingStartedProps> = ({ navigation: _navigation
 
   /**
    * Handle get started button press
-   * Navigate to next screen in auth flow (e.g., OTP screen)
+   * Navigate to phone number entry screen
    */
   const handleGetStarted = () => {
-    // TODO: Navigate to next screen when ready
-    // Example: _navigation.navigate('OTP', { phoneNumber: '' });
-    // For now, navigation is available but next screen not yet implemented
+    navigation.navigate('PhoneNumber');
   };
 
   return (

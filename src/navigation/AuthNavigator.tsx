@@ -8,7 +8,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from './types';
-import { GettingStarted } from '../screens/auth';
+import { GettingStarted, PhoneNumber } from '../screens/auth';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -31,6 +31,13 @@ const AuthNavigator: React.FC = () => {
         component={GettingStarted}
         options={{
           gestureEnabled: false, // Prevent swipe back on onboarding
+        }}
+      />
+      <Stack.Screen
+        name="PhoneNumber"
+        component={PhoneNumber}
+        options={{
+          gestureEnabled: true,
         }}
       />
       {/* Add more auth screens here:

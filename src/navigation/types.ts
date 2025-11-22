@@ -23,6 +23,7 @@ export type RootStackParamList = {
  */
 export type AuthStackParamList = {
   GettingStarted: undefined;
+  PhoneNumber: undefined;
   // Add other auth screens here:
   // OTP: { phoneNumber: string };
   // Login: undefined;
