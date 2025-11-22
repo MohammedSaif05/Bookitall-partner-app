@@ -37,8 +37,12 @@ The iOS New Architecture is automatically enabled through the Podfile configurat
 
 All current dependencies are New Architecture compatible:
 
-- ✅ `react-native-safe-area-context@^5.5.2` - Fully compatible
-- ✅ `@react-native/new-app-screen@0.82.1` - Built for New Architecture
+- ✅ `react-native-safe-area-context@^5.6.2` - Fully compatible
+- ✅ `react-native-screens@^4.18.0` - Fully compatible (with C++ linking fix)
+- ✅ `@react-navigation/native@^7.1.21` - Fully compatible
+- ✅ `@react-navigation/native-stack@^7.7.0` - Fully compatible
+- ✅ `react-native-svg@^15.15.0` - Fully compatible
+- ✅ `react-native-bootsplash@^6.3.11` - Fully compatible
 - ✅ `react@19.1.1` - Compatible with New Architecture
 - ✅ `react-native@0.82.1` - Latest version with full New Architecture support
 
@@ -54,11 +58,36 @@ When adding new React Native libraries, verify they support New Architecture:
 ```
 Bookitallpartner/
 ├── src/
-│   ├── components/
-│   │   └── ErrorBoundary.tsx    # Production error handling
+│   ├── assets/                   # Images, fonts, etc.
+│   │   ├── webp/                 # WebP images
+│   │   └── svg/                   # SVG assets
+│   ├── components/               # Reusable components
+│   │   ├── auth/                 # Auth-related components
+│   │   │   ├── DotIndicator.tsx  # Pagination dots
+│   │   │   └── PrimaryButton.tsx  # Primary button component
+│   │   ├── ErrorBoundary.tsx      # Production error handling
+│   │   └── SplashScreen.tsx       # Splash screen component
+│   ├── navigation/               # Navigation configuration
+│   │   ├── types.ts              # Navigation type definitions
+│   │   ├── RootNavigator.tsx     # Root navigation container
+│   │   ├── AuthNavigator.tsx     # Auth flow navigator
+│   │   └── index.ts              # Barrel exports
+│   ├── screens/                  # Screen components
+│   │   └── auth/                 # Authentication screens
+│   │       ├── GettingStarted.tsx
+│   │       └── index.ts
+│   ├── theme/                    # Theme configuration
+│   │   ├── colors.ts             # Color palette
+│   │   ├── fonts.ts              # Typography configuration
+│   │   └── scaling.ts            # Responsive scaling utilities
 │   ├── utils/                    # Utility functions
+│   │   └── constants.ts          # App constants
 │   └── types/                    # TypeScript type definitions
+│       └── index.ts
 ├── android/                      # Android native code
+│   ├── app/
+│   │   └── build.gradle          # App build config (with C++ fix)
+│   └── build.gradle              # Root build config (with C++ fix)
 ├── ios/                          # iOS native code
 └── App.tsx                       # Root component with ErrorBoundary
 ```
@@ -221,11 +250,37 @@ npm run type-check
    ```
 
 2. **C++ Linking Errors (undefined symbols)**:
-   If you encounter C++ linking errors with libraries like `react-native-safe-area-context`:
-   - Update the library to the latest version: `npm install react-native-safe-area-context@latest`
-   - Clean CMake cache: Delete `android/app/.cxx` directory
-   - Clean and rebuild: `cd android && ./gradlew clean && cd .. && npm run android`
-   - Ensure NDK version matches React Native requirements (check `android/build.gradle`)
+   
+   **Problem**: Native modules like `react-native-screens`, `react-native-safe-area-context` fail to link with errors like:
+   ```
+   ld.lld: error: undefined symbol: operator delete(void*)
+   ld.lld: error: undefined symbol: std::__ndk1::basic_string<...>
+   ```
+   
+   **Root Cause**: CMake-generated `build.ninja` files don't include `-lc++` (C++ standard library) in the linker flags, causing undefined symbol errors for C++ runtime functions.
+   
+   **Solution**: This project includes an automatic fix in `android/build.gradle` that patches all `build.ninja` files to add `-lc++` before `-latomic`. The fix:
+   - Runs automatically for all subprojects (including `react-native-screens`)
+   - Patches files after CMake configuration and before building
+   - Works for all architectures (arm64-v8a, armeabi-v7a, x86, x86_64)
+   
+   **Manual Fix** (if automatic fix doesn't work):
+   ```bash
+   # Clean CMake cache
+   Remove-Item -Recurse -Force "android\app\.cxx"
+   Remove-Item -Recurse -Force "node_modules\react-native-screens\android\.cxx"
+   
+   # Clean Gradle build
+   cd android && ./gradlew clean && cd ..
+   
+   # Rebuild
+   npm run android
+   ```
+   
+   **Verify Fix**: During build, you should see messages like:
+   ```
+   ✅ [react-native-screens] Patched build.ninja to link libc++: [path]
+   ```
 
 3. **Invalid cache**:
    ```bash
@@ -272,6 +327,111 @@ npm run type-check
 - [TurboModules](https://reactnative.dev/docs/the-new-architecture/landing-page#turbomodules)
 - [Codegen](https://reactnative.dev/docs/the-new-architecture/landing-page#codegen)
 
+## 🧭 Navigation Setup
+
+This project uses **React Navigation v7** with Native Stack Navigator for optimal performance.
+
+### Navigation Structure
+
+- **Root Navigator** (`src/navigation/RootNavigator.tsx`): Top-level navigation container
+- **Auth Navigator** (`src/navigation/AuthNavigator.tsx`): Handles authentication flow screens
+- **Type Definitions** (`src/navigation/types.ts`): Centralized TypeScript types for type-safe navigation
+
+### Adding New Screens
+
+1. **Add route to type definitions** (`src/navigation/types.ts`):
+   ```typescript
+   export type AuthStackParamList = {
+     GettingStarted: undefined;
+     OTP: { phoneNumber: string }; // New screen
+   };
+   ```
+
+2. **Add screen to navigator** (`src/navigation/AuthNavigator.tsx`):
+   ```typescript
+   <Stack.Screen
+     name="OTP"
+     component={OTPScreen}
+   />
+   ```
+
+3. **Navigate from any screen**:
+   ```typescript
+   navigation.navigate('OTP', { phoneNumber: '1234567890' });
+   ```
+
+### Navigation Features
+
+- ✅ Type-safe navigation with full TypeScript support
+- ✅ Centralized navigation configuration
+- ✅ Native stack performance (uses native navigation primitives)
+- ✅ No C++ linking issues (pure JavaScript/TypeScript)
+- ✅ Production-ready and battle-tested
+
+## 🔧 C++ Linking Fix - Technical Details
+
+### The Problem
+
+When using React Native's New Architecture with native modules that use C++ (like `react-native-screens`), CMake generates `build.ninja` files that don't include the C++ standard library (`libc++`) in the linker flags. This causes undefined symbol errors during linking.
+
+### The Solution
+
+We implemented an automatic patch in `android/build.gradle` that:
+
+1. **Hooks into Gradle build lifecycle**: Uses `gradle.projectsEvaluated` to run after all projects are evaluated
+2. **Finds all build.ninja files**: Recursively searches `.cxx` directories in all subprojects
+3. **Patches linker flags**: Adds `-lc++` before `-latomic` in all `LINK_LIBRARIES` lines
+4. **Runs at the right time**: Patches after CMake configuration and before building
+
+### Implementation
+
+**Location**: `android/build.gradle` (lines 23-71)
+
+```groovy
+gradle.projectsEvaluated {
+    subprojects { project ->
+        def patchBuildNinja = { cxxDir ->
+            // Recursively find and patch all build.ninja files
+            // Adds -lc++ before -latomic in LINK_LIBRARIES
+        }
+        
+        // Patch after CMake configuration
+        project.tasks.matching { 
+            it.name.matches(".*configureCMake.*")
+        }.configureEach { task ->
+            doLast { patchBuildNinja(...) }
+        }
+        
+        // Patch before building
+        project.tasks.matching {
+            it.name.matches(".*buildCMake.*")
+        }.configureEach { task ->
+            doFirst { patchBuildNinja(...) }
+        }
+    }
+}
+```
+
+### Why This Works
+
+- **Automatic**: No manual intervention needed
+- **Comprehensive**: Covers all subprojects (app, react-native-screens, etc.)
+- **Safe**: Only patches files that need it (checks for `-latomic` and absence of `-lc++`)
+- **Reliable**: Runs at the correct build lifecycle stages
+
+### Verification
+
+During build, you'll see confirmation messages:
+```
+✅ [app] Patched build.ninja to link libc++: [path]
+✅ [react-native-screens] Patched build.ninja to link libc++: [path]
+```
+
+If you don't see these messages, the fix may not be running. Check:
+1. `android/build.gradle` contains the patch code
+2. Build cache is cleared
+3. Gradle daemon is restarted
+
 ## 🎯 Next Steps
 
 1. **Error Monitoring**: Integrate Sentry or similar service in `ErrorBoundary`
@@ -287,7 +447,54 @@ npm run type-check
 3. **Environment Variables**: Use environment variables for API keys and secrets
 4. **ProGuard Rules**: Add ProGuard rules for any native libraries when enabling ProGuard
 
+## 📋 Current Project Setup Summary
+
+### Installed Packages
+
+**Navigation**:
+- `@react-navigation/native@^7.1.21`
+- `@react-navigation/native-stack@^7.7.0`
+- `react-native-screens@^4.18.0` (peer dependency)
+
+**UI/Styling**:
+- `nativewind@^4.2.1` - Tailwind CSS for React Native
+- `react-native-size-matters@^0.4.2` - Responsive scaling
+- `react-native-svg@^15.15.0` - SVG support
+
+**Utilities**:
+- `react-native-safe-area-context@^5.6.2` - Safe area handling
+- `react-native-bootsplash@^6.3.11` - Splash screen
+
+### Project Features
+
+✅ **New Architecture**: Fully enabled and configured  
+✅ **TypeScript**: Strict mode with comprehensive type checking  
+✅ **Navigation**: React Navigation v7 with type-safe setup  
+✅ **Error Handling**: Production-ready ErrorBoundary  
+✅ **C++ Linking Fix**: Automatic fix for all native modules  
+✅ **Responsive Design**: Scaling utilities and theme system  
+✅ **Code Quality**: ESLint, Prettier, and type checking configured  
+
+### Theme System
+
+**Colors** (`src/theme/colors.ts`):
+- Background: `#EBEBEB`
+- Text: `#050505`
+- Primary Button: `#9334EA`
+- Disabled Button: `#A855F7` (60% opacity)
+
+**Typography** (`src/theme/fonts.ts`):
+- Manrope font family (all weights)
+- Responsive font scaling
+
+**Scaling** (`src/theme/scaling.ts`):
+- `ms()` - Moderate scaling
+- `vs()` - Vertical scaling
+- `hs()` - Horizontal scaling
+
 ---
 
-**Last Updated**: Based on React Native 0.82.1 with New Architecture enabled
+**Last Updated**: React Native 0.82.1 with New Architecture enabled  
+**C++ Linking Fix**: Implemented and tested - automatically patches all native modules  
+**Navigation**: React Navigation v7 with centralized type-safe setup
 

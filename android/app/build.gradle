@@ -127,45 +127,75 @@ android {
 }
 
 // Fix for C++ linking issues with New Architecture
-// This ensures libc++ is properly linked for autolinked libraries
-// The issue is that React Native's autolinking doesn't properly configure STL
+// This ensures libc++ is properly linked for ALL native modules (including autolinked)
 afterEvaluate {
-    // Patch build.ninja files to add libc++ linking after CMake configuration
-    tasks.matching { 
-        it.name.matches(".*configureCMake.*")
-    }.configureEach { task ->
-        doLast {
-            // Find and patch build.ninja files in .cxx directory
-            def cxxBaseDir = file("${project.projectDir}/.cxx")
-            if (cxxBaseDir.exists()) {
-                cxxBaseDir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
-                    if (file.name == "build.ninja") {
-                        def content = file.text
-                        def modified = false
-                        def newContent = content
+    // Patch build.ninja files after CMake configuration AND before building
+    def patchBuildNinja = { cxxDir ->
+        if (cxxDir.exists()) {
+            cxxDir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+                if (file.name == "build.ninja") {
+                    def content = file.text
+                    def newContent = content
+                    
+                    // Patch ALL LINK_LIBRARIES lines that have -latomic but not -lc++
+                    if (content.contains("LINK_LIBRARIES") && content.contains("-latomic") && !content.contains("-lc++")) {
+                        // Simple approach: Add -lc++ before -latomic with proper spacing
+                        newContent = newContent.replaceAll(
+                            /(\s+)(-latomic)/,
+                            '$1 -lc++ $2'
+                        )
                         
-                        // Patch LINK_LIBRARIES for react_codegen targets to include -lc++
-                        // Match any LINK_LIBRARIES line that ends with -latomic -lm and add -lc++ before it
-                        // This handles both appmodules and individual react_codegen_* targets
-                        if (content.contains("LINK_LIBRARIES") && content.contains("libreactnative") && content.contains("-latomic")) {
-                            // Use regex to find and replace LINK_LIBRARIES lines
-                            newContent = newContent.replaceAll(
-                                /(LINK_LIBRARIES = [^\n]*libreactnative[^\n]*")(\s+-latomic\s+-lm)/,
-                                { match ->
-                                    if (!match[0].contains("-lc++")) {
-                                        modified = true
-                                        return match[1] + " -lc++" + match[2]
-                                    }
-                                    return match[0]
-                                }
-                            )
-                        }
-                        
-                        if (modified) {
+                        if (newContent != content) {
                             file.text = newContent
                             println "✅ Patched build.ninja to link libc++: ${file.path}"
                         }
                     }
+                }
+            }
+        }
+    }
+    
+    // Global function to patch all .cxx directories
+    def patchAllCxxDirs = {
+        def rootDir = file("${project.projectDir}/../..")
+        
+        // Patch app .cxx directory
+        patchBuildNinja(file("${project.projectDir}/.cxx"))
+        
+        // Patch all node_modules .cxx directories
+        def nodeModulesDir = file("${rootDir}/node_modules")
+        if (nodeModulesDir.exists()) {
+            nodeModulesDir.eachDir { moduleDir ->
+                def moduleCxxDir = file("${moduleDir}/android/.cxx")
+                patchBuildNinja(moduleCxxDir)
+            }
+        }
+    }
+    
+    // Patch after CMake configuration (for app project)
+    tasks.matching { 
+        it.name.matches(".*configureCMake.*") && it.project == project
+    }.configureEach { task ->
+        doLast {
+            patchAllCxxDirs()
+        }
+    }
+    
+    // Patch before building (for ALL projects including react-native-screens)
+    tasks.matching {
+        it.name.matches(".*buildCMake.*")
+    }.configureEach { task ->
+        doFirst {
+            // Patch all .cxx directories before building
+            def rootDir = file("${project.projectDir}/../..")
+            patchBuildNinja(file("${project.projectDir}/.cxx"))
+            
+            // Patch node_modules
+            def nodeModulesDir = file("${rootDir}/node_modules")
+            if (nodeModulesDir.exists()) {
+                nodeModulesDir.eachDir { moduleDir ->
+                    def moduleCxxDir = file("${moduleDir}/android/.cxx")
+                    patchBuildNinja(moduleCxxDir)
                 }
             }
         }

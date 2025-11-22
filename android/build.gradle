@@ -19,3 +19,53 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+// Global C++ linking fix for ALL projects (including react-native-screens)
+// This ensures libc++ is properly linked for all native modules
+gradle.projectsEvaluated {
+    subprojects { project ->
+        // Patch build.ninja files to add libc++ linking
+        def patchBuildNinja = { cxxDir ->
+            if (cxxDir.exists()) {
+                cxxDir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+                    if (file.name == "build.ninja") {
+                        def content = file.text
+                        def newContent = content
+                        
+                        // Patch ALL LINK_LIBRARIES lines that have -latomic but not -lc++
+                        if (content.contains("LINK_LIBRARIES") && content.contains("-latomic") && !content.contains("-lc++")) {
+                            // Add -lc++ before -latomic with proper spacing
+                            newContent = newContent.replaceAll(
+                                /(\s+)(-latomic)/,
+                                '$1 -lc++ $2'
+                            )
+                            
+                            if (newContent != content) {
+                                file.text = newContent
+                                println "✅ [${project.name}] Patched build.ninja to link libc++: ${file.path}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Patch after CMake configuration
+        project.tasks.matching { 
+            it.name.matches(".*configureCMake.*")
+        }.configureEach { task ->
+            doLast {
+                patchBuildNinja(file("${project.projectDir}/.cxx"))
+            }
+        }
+        
+        // Patch before building
+        project.tasks.matching {
+            it.name.matches(".*buildCMake.*")
+        }.configureEach { task ->
+            doFirst {
+                patchBuildNinja(file("${project.projectDir}/.cxx"))
+            }
+        }
+    }
+}

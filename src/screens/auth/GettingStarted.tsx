@@ -17,6 +17,7 @@ import {
   NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { AuthStackScreenProps } from '../../navigation/types';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { ms, vs, hs } from '../../theme/scaling';
@@ -51,19 +52,12 @@ const ONBOARDING_CONTENT = [
   },
 ];
 
-interface GettingStartedProps {
-  /**
-   * Callback when "Get started" button is pressed
-   */
-  onGetStarted?: () => void;
-}
+type GettingStartedProps = AuthStackScreenProps<'GettingStarted'>;
 
 /**
  * GettingStarted - Onboarding screen component
  */
-const GettingStarted: React.FC<GettingStartedProps> = ({
-  onGetStarted,
-}) => {
+const GettingStarted: React.FC<GettingStartedProps> = ({ navigation: _navigation }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -78,12 +72,12 @@ const GettingStarted: React.FC<GettingStartedProps> = ({
 
   /**
    * Handle get started button press
+   * Navigate to next screen in auth flow (e.g., OTP screen)
    */
   const handleGetStarted = () => {
-    if (onGetStarted) {
-      onGetStarted();
-    }
-    // Default navigation logic can be added here if needed
+    // TODO: Navigate to next screen when ready
+    // Example: _navigation.navigate('OTP', { phoneNumber: '' });
+    // For now, navigation is available but next screen not yet implemented
   };
 
   return (

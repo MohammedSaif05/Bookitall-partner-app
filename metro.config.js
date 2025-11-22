@@ -7,8 +7,18 @@ const { withNativeWind } = require('nativewind/metro');
  *
  * @type {import('@react-native/metro-config').MetroConfig}
  */
-const config = {};
+const defaultConfig = getDefaultConfig(__dirname);
 
-module.exports = withNativeWind(mergeConfig(getDefaultConfig(__dirname), config), {
+const config = {
+  resolver: {
+    ...defaultConfig.resolver,
+    // Ensure .js files are resolved properly
+    sourceExts: ['jsx', 'js', 'ts', 'tsx', 'json', 'mjs', 'cjs'],
+    // Remove js from asset extensions to allow it as source
+    assetExts: (defaultConfig.resolver?.assetExts || []).filter((ext) => ext !== 'js'),
+  },
+};
+
+module.exports = withNativeWind(mergeConfig(defaultConfig, config), {
   input: './global.css',
 });

@@ -6,12 +6,12 @@
  */
 
 import { useLayoutEffect, useState } from 'react';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RNBootSplash from 'react-native-bootsplash';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import SplashScreen from './src/components/SplashScreen';
-import GettingStarted from './src/screens/auth/GettingStarted';
+import { RootNavigator } from './src/navigation';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -63,22 +63,7 @@ function App() {
 }
 
 function AppContent() {
-  const handleGetStarted = () => {
-    // TODO: Navigate to next screen (e.g., OTP screen)
-    console.log('Navigate to OTP screen');
-  };
-
-  return (
-    <View style={styles.container}>
-      <GettingStarted onGetStarted={handleGetStarted} />
-    </View>
-  );
+  return <RootNavigator />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;
