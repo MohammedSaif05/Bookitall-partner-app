@@ -9,5 +9,14 @@ export interface AppConfig {
   version: string;
 }
 
+// Image asset types
+export type ImageSource = ReturnType<typeof require>;
+
+// Navigation types
+export interface NavigationProps {
+  navigation?: any;
+  route?: any;
+}
+
 // Add more types as needed
 

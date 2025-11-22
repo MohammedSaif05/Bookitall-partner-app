@@ -19,8 +19,7 @@
     "build:ios:bundle": "react-native bundle --platform ios --dev false --entry-file index.js --bundle-output ios/main.jsbundle --assets-dest ios",
     "clean": "cd android && ./gradlew clean && cd .. && cd ios && rm -rf build Pods Podfile.lock && cd ..",
     "clean:android": "cd android && ./gradlew clean && cd ..",
-    "clean:ios": "cd ios && rm -rf build Pods Podfile.lock && cd ..",
-    "postinstall": "cd ios && bundle exec pod install && cd .."
+    "clean:ios": "cd ios && rm -rf build Pods Podfile.lock && cd .."
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.82.1",
