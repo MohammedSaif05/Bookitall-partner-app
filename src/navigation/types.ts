@@ -24,8 +24,8 @@ export type RootStackParamList = {
 export type AuthStackParamList = {
   GettingStarted: undefined;
   PhoneNumber: undefined;
+  OTP: { phoneNumber?: string };
   // Add other auth screens here:
-  // OTP: { phoneNumber: string };
   // Login: undefined;
   // Register: undefined;
 };

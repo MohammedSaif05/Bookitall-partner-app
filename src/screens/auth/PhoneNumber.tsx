@@ -56,9 +56,7 @@ const PhoneNumber: React.FC<PhoneNumberProps> = ({ navigation: _navigation }) =>
    */
   const handleSendOTP = () => {
     if (isValidPhoneNumber) {
-      // TODO: Navigate to OTP verification screen
-      // Example: _navigation.navigate('OTP', { phoneNumber: `+91${phoneNumber}` });
-      // For now, navigation is available but next screen not yet implemented
+      _navigation.navigate('OTP', { phoneNumber: `+91${phoneNumber}` });
     }
   };
 
