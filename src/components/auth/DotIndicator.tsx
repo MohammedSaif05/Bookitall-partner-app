@@ -40,8 +40,8 @@ interface DotIndicatorProps {
   activeColor?: string;
   
   /**
-   * Inactive dot color
-   * @default colors.background.white
+   * Inactive dot border/stroke color
+   * @default colors.text.primary
    */
   inactiveColor?: string;
 }
@@ -55,8 +55,10 @@ const DotIndicator: React.FC<DotIndicatorProps> = ({
   dotSize = ms(10),
   spacing = ms(8),
   activeColor = colors.text.primary,
-  inactiveColor = colors.background.white,
+  inactiveColor = colors.text.primary,
 }) => {
+  const isActive = (index: number) => index === activeIndex;
+
   return (
     <View style={styles.container}>
       {Array.from({ length: totalDots }).map((_, index) => (
@@ -68,12 +70,12 @@ const DotIndicator: React.FC<DotIndicatorProps> = ({
               width: dotSize,
               height: dotSize,
               borderRadius: dotSize / 2,
-              backgroundColor: index === activeIndex ? activeColor : inactiveColor,
+              // Active dot: filled with activeColor
+              // Inactive dot: transparent background with border
+              backgroundColor: isActive(index) ? activeColor : 'transparent',
+              borderWidth: isActive(index) ? 0 : 1,
+              borderColor: inactiveColor,
               marginRight: index < totalDots - 1 ? spacing : 0,
-              borderWidth: index === activeIndex ? 0 : 1,
-              borderColor: inactiveColor === colors.background.white 
-                ? colors.border.light 
-                : inactiveColor,
             },
           ]}
         />
