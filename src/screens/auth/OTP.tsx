@@ -124,6 +124,7 @@ const OTP: React.FC<OTPProps> = ({ navigation, route: _route }) => {
       // TODO: Verify OTP with backend
       // const otpCode = otp.join('');
       // Example: verifyOTP(otpCode).then(() => navigation.navigate('Home'));
+      navigation.navigate('BusinessSetup');
     }
   };
 
@@ -191,7 +192,12 @@ const OTP: React.FC<OTPProps> = ({ navigation, route: _route }) => {
                 }}
                 style={[styles.otpInput, digit && styles.otpInputFilled]}
                 value={digit}
-                onChangeText={(text) => handleOtpChange(text, index)}
+                onChangeText={(text) => {
+                  if (isOtpComplete && text) {
+                    return;
+                  }
+                  handleOtpChange(text, index);
+                }}
                 onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                 keyboardType="number-pad"
                 maxLength={6}

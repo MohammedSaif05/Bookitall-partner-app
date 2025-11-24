@@ -22,10 +22,10 @@ export const colors = {
 
   // Button colors
   button: {
-    primary: '#9334EA',
-    primaryDisabled: '#A855F7', // 60% opacity applied in component
+    primary: '#050505',
+    primaryDisabled: '#000000', // 60% opacity applied in component
     secondary: '#666666',
-    disabled: '#CCCCCC',
+    disabled: '#000000',
   },
 
   // Status colors
