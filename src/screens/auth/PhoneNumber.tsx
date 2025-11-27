@@ -22,6 +22,8 @@ import { typography } from '../../theme/fonts';
 import { ms, vs, hs } from '../../theme/scaling';
 import PrimaryButton from '../../components/auth/PrimaryButton';
 import PhoneIcon from '../../assets/svg/icons/Phone.svg';
+import { authService, type CustomAxiosError } from '../../services/api';
+import { showError } from '../../utils/flashMessage';
 
 // Illustration image
 const ILLUSTRATION = require('../../assets/webp/illustration_phoneno.webp');
@@ -31,8 +33,9 @@ type PhoneNumberProps = AuthStackScreenProps<'PhoneNumber'>;
 /**
  * PhoneNumber - Phone number entry screen component
  */
-const PhoneNumber: React.FC<PhoneNumberProps> = ({ navigation: _navigation }) => {
+const PhoneNumber: React.FC<PhoneNumberProps> = ({ navigation }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
   
   // Phone number should be exactly 10 digits
   const isValidPhoneNumber = phoneNumber.length === 10 && /^\d+$/.test(phoneNumber);
@@ -54,9 +57,38 @@ const PhoneNumber: React.FC<PhoneNumberProps> = ({ navigation: _navigation }) =>
   /**
    * Handle Send OTP button press
    */
-  const handleSendOTP = () => {
-    if (isValidPhoneNumber) {
-      _navigation.navigate('OTP', { phoneNumber: `+91${phoneNumber}` });
+  const handleSendOTP = async () => {
+    if (!isValidPhoneNumber || loading) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await authService.sendOTP({
+        mobileNo: phoneNumber,
+      });
+
+      // Only navigate if success is true
+      if (response.success) {
+        // Navigate to OTP screen with phone number
+        navigation.navigate('OTP', { phoneNumber: `+91${phoneNumber}` });
+      } else {
+        // Show error message if success is false
+        showError(
+          response.message || 'Failed to send OTP. Please try again.'
+        );
+      }
+    } catch (error) {
+      // Handle API errors
+      const apiError = error as CustomAxiosError;
+      const errorMessage =
+        apiError.response?.data?.message ||
+        apiError.response?.data?.error ||
+        'Network error. Please check your internet connection and try again.';
+      
+      showError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -139,7 +171,8 @@ const PhoneNumber: React.FC<PhoneNumberProps> = ({ navigation: _navigation }) =>
             <PrimaryButton
               label="Send OTP"
               onPress={handleSendOTP}
-              disabled={!isValidPhoneNumber}
+              disabled={!isValidPhoneNumber || loading}
+              loading={loading}
               height={vs(44)}
             />
           </View>

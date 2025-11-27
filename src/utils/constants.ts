@@ -13,5 +13,29 @@ export const ENV = {
   PRODUCTION: !__DEV__,
 } as const;
 
-// Add your API endpoints, feature flags, etc. here
+/**
+ * API Configuration
+ * Centralized API endpoints and configuration
+ */
+export const API_CONFIG = {
+  BASE_URL: 'https://bookitall-user-service.onrender.com',
+  TIMEOUT: 30000, // 30 seconds
+  HEADERS: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+} as const;
+
+/**
+ * API Endpoints
+ * Centralized endpoint definitions
+ */
+export const API_ENDPOINTS = {
+  // Auth endpoints
+  AUTH: {
+    SEND_OTP: '/api/auth/send-otp',
+    VERIFY_OTP: '/api/auth/verify-otp',
+    RESEND_OTP: '/api/auth/resend-otp',
+  },
+} as const;
 

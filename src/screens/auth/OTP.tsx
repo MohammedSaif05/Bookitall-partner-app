@@ -22,6 +22,8 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { ms, vs, hs } from '../../theme/scaling';
 import PrimaryButton from '../../components/auth/PrimaryButton';
+import { authService, type CustomAxiosError } from '../../services/api';
+import { showError } from '../../utils/flashMessage';
 
 // Illustration image (temporary - same as PhoneNumber)
 const ILLUSTRATION = require('../../assets/webp/illustration_phoneno.webp');
@@ -31,10 +33,16 @@ type OTPProps = AuthStackScreenProps<'OTP'>;
 /**
  * OTP - OTP verification screen component
  */
-const OTP: React.FC<OTPProps> = ({ navigation, route: _route }) => {
+const OTP: React.FC<OTPProps> = ({ navigation, route }) => {
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [timeLeft, setTimeLeft] = useState(45); // Countdown in seconds
+  const [loading, setLoading] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
+
+  // Get phone number from route params
+  const phoneNumber = route.params?.phoneNumber || '';
+  // Extract mobile number (remove +91 prefix if present)
+  const mobileNo = phoneNumber.replace(/^\+91/, '');
 
   // Countdown timer
   useEffect(() => {
@@ -119,12 +127,41 @@ const OTP: React.FC<OTPProps> = ({ navigation, route: _route }) => {
   /**
    * Handle Verify button press
    */
-  const handleVerify = () => {
-    if (isOtpComplete) {
-      // TODO: Verify OTP with backend
-      // const otpCode = otp.join('');
-      // Example: verifyOTP(otpCode).then(() => navigation.navigate('Home'));
-      navigation.navigate('BusinessSetup');
+  const handleVerify = async () => {
+    if (!isOtpComplete || loading || !mobileNo) {
+      return;
+    }
+
+    const otpCode = otp.join('');
+    setLoading(true);
+
+    try {
+      const response = await authService.verifyOTP({
+        mobileNo,
+        otp: otpCode,
+      });
+
+      // Only navigate if success is true
+      if (response.success) {
+        // Navigate to next screen (BusinessSetup)
+        navigation.navigate('BusinessSetup');
+      } else {
+        // Show error message if success is false
+        showError(
+          response.message || 'Invalid OTP. Please try again.'
+        );
+      }
+    } catch (error) {
+      // Handle API errors
+      const apiError = error as CustomAxiosError;
+      const errorMessage =
+        apiError.response?.data?.message ||
+        apiError.response?.data?.error ||
+        'Network error. Please check your internet connection and try again.';
+      
+      showError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -223,7 +260,8 @@ const OTP: React.FC<OTPProps> = ({ navigation, route: _route }) => {
                 <PrimaryButton
                   label="Verify"
                   onPress={handleVerify}
-                  disabled={!isOtpComplete}
+                  disabled={!isOtpComplete || loading}
+                  loading={loading}
                   height={vs(44)}
                   fullWidth={true}
                   containerStyle={styles.verifyButton}

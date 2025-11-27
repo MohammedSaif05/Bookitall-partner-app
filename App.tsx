@@ -8,6 +8,7 @@
 import { useLayoutEffect, useState } from 'react';
 import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import FlashMessage from 'react-native-flash-message';
 import RNBootSplash from 'react-native-bootsplash';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import SplashScreen from './src/components/SplashScreen';
@@ -57,6 +58,7 @@ function App() {
         ) : (
           <AppContent />
         )}
+        <FlashMessage position="bottom" />
       </SafeAreaProvider>
     </ErrorBoundary>
   );
