@@ -14,6 +14,7 @@ import {
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { AuthStackScreenProps } from '../../navigation/types';
@@ -149,24 +150,33 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <PageIndicators totalSteps={4} currentStep={0} />
-        </View>
+      <TouchableWithoutFeedback onPress={() => {
+        Keyboard.dismiss();
+        setShowBusinessNameTooltip(false);
+      }}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <PageIndicators totalSteps={4} currentStep={0} />
+          </View>
 
-        <ScrollView
+          <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           bounces={false}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => {
+            Keyboard.dismiss();
+            setShowBusinessNameTooltip(false);
+          }}
         >
-          <View style={styles.titleWrapper}>
-            <Text style={styles.title}>Let's setup your business</Text>
-            <Text style={styles.subtitle}>
-              Tell us a few details so customers can find{'\n'}you easily.
-            </Text>
-          </View>
+            <View style={styles.titleWrapper}>
+              <Text style={styles.title}>Let's setup your business</Text>
+              <Text style={styles.subtitle}>
+                Tell us a few details so customers can find{'\n'}you easily.
+              </Text>
+            </View>
 
-          <View style={styles.fieldsWrapper}>
+            <View style={styles.fieldsWrapper}>
             <OnboardingField
               label="Business name"
               placeholder="Enter your shop or service name"
@@ -208,15 +218,22 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
             disabled={!isFormComplete}
           />
         </View>
-      </View>
+        </View>
+      </TouchableWithoutFeedback>
 
       <Modal
         visible={openSelector !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setOpenSelector(null)}
+        onRequestClose={() => {
+          setOpenSelector(null);
+          setActiveInfoOption(null);
+        }}
       >
-        <TouchableWithoutFeedback onPress={() => setOpenSelector(null)}>
+        <TouchableWithoutFeedback onPress={() => {
+          setOpenSelector(null);
+          setActiveInfoOption(null);
+        }}>
           <View style={styles.modalBackdrop}>
             <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
@@ -228,7 +245,10 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
                     <View key={option} style={styles.optionWrapper}>
                       <TouchableOpacity
                         style={styles.optionRow}
-                        onPress={() => handleSelectOption(option)}
+                        onPress={() => {
+                          handleSelectOption(option);
+                          setActiveInfoOption(null);
+                        }}
                       >
                         <Text style={styles.optionText}>{option}</Text>
                         {optionInfoText && (

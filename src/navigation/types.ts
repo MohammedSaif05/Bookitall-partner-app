@@ -27,6 +27,7 @@ export type AuthStackParamList = {
   OTP: { phoneNumber?: string };
   BusinessSetup: undefined;
   BusinessLocation: undefined;
+  BusinessOwnerDetails: undefined;
   // Add other auth screens here:
   // Login: undefined;
   // Register: undefined;

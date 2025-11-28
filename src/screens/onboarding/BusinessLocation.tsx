@@ -142,8 +142,8 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
       return;
     }
 
-    // TODO: Navigate to next onboarding step when available
-    // navigation.navigate('NextScreen');
+    // Navigate to next onboarding step
+    navigation.navigate('BusinessOwnerDetails');
   };
 
   const handleBack = () => {
