@@ -25,6 +25,9 @@ type OnboardingFieldProps = {
   tooltipText?: string;
   showTooltip?: boolean;
   errorText?: string;
+  keyboardType?: 'default' | 'number-pad' | 'decimal-pad' | 'numeric' | 'email-address' | 'phone-pad';
+  maxLength?: number;
+  marginBottom?: number;
 };
 
 /**
@@ -42,11 +45,14 @@ const OnboardingField: React.FC<OnboardingFieldProps> = ({
   tooltipText,
   showTooltip = false,
   errorText,
+  keyboardType = 'default',
+  maxLength,
+  marginBottom,
 }) => {
   const isEditable = typeof onChangeText === 'function';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, marginBottom !== undefined && { marginBottom }]}>
       <View style={styles.labelRowContainer}>
         <View style={styles.labelRow}>
           <Text style={styles.label}>
@@ -80,6 +86,8 @@ const OnboardingField: React.FC<OnboardingFieldProps> = ({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={colors.text.secondary}
+          keyboardType={keyboardType}
+          maxLength={maxLength}
         />
       ) : (
         <View style={styles.inputRow}>

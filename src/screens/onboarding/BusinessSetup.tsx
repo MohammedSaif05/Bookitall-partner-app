@@ -16,6 +16,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { AuthStackScreenProps } from '../../navigation/types';
 import {
   PageIndicators,
   OnboardingField,
@@ -27,10 +28,12 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
 
+type BusinessSetupProps = AuthStackScreenProps<'BusinessSetup'>;
+
 /**
  * BusinessSetup - Onboarding Page 1
  */
-const BusinessSetup: React.FC = () => {
+const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
   const [businessName, setBusinessName] = useState('');
   const [businessCategory, setBusinessCategory] = useState<string>();
   const [businessType, setBusinessType] = useState<string>();
@@ -140,7 +143,8 @@ const BusinessSetup: React.FC = () => {
       return;
     }
 
-    // TODO: Navigate to next onboarding step when available
+    // Navigate to next onboarding step
+    navigation.navigate('BusinessLocation');
   };
 
   return (
@@ -158,7 +162,7 @@ const BusinessSetup: React.FC = () => {
           <View style={styles.titleWrapper}>
             <Text style={styles.title}>Let's setup your business</Text>
             <Text style={styles.subtitle}>
-              Tell us a few details so customers can find you easily.
+              Tell us a few details so customers can find{'\n'}you easily.
             </Text>
           </View>
 
@@ -174,6 +178,7 @@ const BusinessSetup: React.FC = () => {
               showTooltip={showBusinessNameTooltip}
               tooltipText="This will appear to customers"
               errorText={errors.businessName}
+              marginBottom={vs(4)}
             />
             <OnboardingDropdownField
               label="Business category"
@@ -182,6 +187,7 @@ const BusinessSetup: React.FC = () => {
               value={businessCategory}
               onPress={handleCategoryPress}
               errorText={errors.businessCategory}
+              marginBottom={vs(4)}
             />
             <OnboardingDropdownField
               label="Business type"
@@ -190,6 +196,7 @@ const BusinessSetup: React.FC = () => {
               value={businessType}
               onPress={handleTypePress}
               errorText={errors.businessType}
+              marginBottom={vs(4)}
             />
           </View>
         </ScrollView>

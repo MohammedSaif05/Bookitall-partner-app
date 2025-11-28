@@ -21,6 +21,7 @@ type OnboardingDropdownFieldProps = {
   showInfoIcon?: boolean;
   onPress?: () => void;
   errorText?: string;
+  marginBottom?: number;
 };
 
 /**
@@ -34,11 +35,12 @@ const OnboardingDropdownField: React.FC<OnboardingDropdownFieldProps> = ({
   showInfoIcon = false,
   onPress,
   errorText,
+  marginBottom,
 }) => {
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      style={styles.container}
+      style={[styles.container, marginBottom !== undefined && { marginBottom }]}
       onPress={onPress}
     >
       <View style={styles.labelRow}>
