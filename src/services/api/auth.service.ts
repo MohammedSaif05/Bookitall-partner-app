@@ -37,6 +37,7 @@ export interface SendOTPResponse {
 export interface VerifyOTPRequest {
   mobileNo: string;
   otp: string;
+  userType?: string;
 }
 
 /**
@@ -110,6 +111,7 @@ class AuthService {
         {
           mobileNo: payload.mobileNo,
           otp: payload.otp,
+          userType: payload.userType ?? 'vendor',
         }
       );
 
