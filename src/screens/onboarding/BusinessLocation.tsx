@@ -35,17 +35,21 @@ type BusinessLocationProps = AuthStackScreenProps<'BusinessLocation'>;
 const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
   const [addressLine, setAddressLine] = useState('');
   const [landmark, setLandmark] = useState('');
+  const [googleMapsLink, setGoogleMapsLink] = useState('');
   const [city, setCity] = useState('');
   const [pincode, setPincode] = useState('');
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [errors, setErrors] = useState<{
     addressLine?: string;
+    landmark?: string;
     city?: string;
     pincode?: string;
+    googleMapsLink?: string;
   }>({});
 
   const isFormComplete =
     addressLine.trim().length > 0 &&
+    landmark.trim().length > 0 &&
     city.trim().length > 0 &&
     pincode.trim().length === 6 &&
     /^\d+$/.test(pincode);
@@ -59,6 +63,16 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
 
   const handleLandmarkChange = (value: string) => {
     setLandmark(value);
+    if (errors.landmark) {
+      setErrors((prev) => ({ ...prev, landmark: undefined }));
+    }
+  };
+
+  const handleGoogleMapsLinkChange = (value: string) => {
+    setGoogleMapsLink(value);
+    if (errors.googleMapsLink) {
+      setErrors((prev) => ({ ...prev, googleMapsLink: undefined }));
+    }
   };
 
   const handleCityChange = (value: string) => {
@@ -110,6 +124,9 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
       
       if (addressDetails.landmark) {
         setLandmark(addressDetails.landmark);
+        if (errors.landmark) {
+          setErrors((prev) => ({ ...prev, landmark: undefined }));
+        }
       }
 
       showSuccess('Location detected successfully!');
@@ -130,11 +147,22 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
     if (!addressLine.trim()) {
       validationErrors.addressLine = 'Please enter your address.';
     }
+    if (!landmark.trim()) {
+      validationErrors.landmark = 'Please enter a landmark.';
+    }
     if (!city.trim()) {
       validationErrors.city = 'Please enter your city.';
     }
     if (!pincode || pincode.length !== 6) {
       validationErrors.pincode = 'Please enter a valid 6-digit pincode.';
+    }
+    
+    // Validate Google Maps link if provided (optional field)
+    // Just check if the link contains "maps" keyword
+    if (googleMapsLink.trim()) {
+      if (!googleMapsLink.trim().toLowerCase().includes('maps')) {
+        validationErrors.googleMapsLink = 'Please enter a valid Google Maps link.';
+      }
     }
 
     if (Object.keys(validationErrors).length > 0) {
@@ -193,8 +221,18 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
             <OnboardingField
               label="Landmark"
               placeholder="Nearby landmark"
+              required
               value={landmark}
               onChangeText={handleLandmarkChange}
+              errorText={errors.landmark}
+              marginBottom={vs(4)}
+            />
+            <OnboardingField
+              label="Google Maps"
+              placeholder="Paste your Google Maps link"
+              value={googleMapsLink}
+              onChangeText={handleGoogleMapsLinkChange}
+              errorText={errors.googleMapsLink}
               marginBottom={vs(4)}
             />
             <View style={styles.rowFields}>

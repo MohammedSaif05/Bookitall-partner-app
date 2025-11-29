@@ -99,7 +99,8 @@ const BusinessOwnerDetails: React.FC<BusinessOwnerDetailsProps> = ({ navigation 
     }
 
     // TODO: Navigate to next onboarding step when available
-    // navigation.navigate('NextScreen');
+    // Navigate to next onboarding step (OperatingHours)
+    navigation.navigate('OperatingHours');
   };
 
   const handleBack = () => {

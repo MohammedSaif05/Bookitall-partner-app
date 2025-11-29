@@ -28,6 +28,8 @@ export type AuthStackParamList = {
   BusinessSetup: undefined;
   BusinessLocation: undefined;
   BusinessOwnerDetails: undefined;
+  OperatingHours: undefined;
+  SuccessScreen: undefined;
   // Add other auth screens here:
   // Login: undefined;
   // Register: undefined;
