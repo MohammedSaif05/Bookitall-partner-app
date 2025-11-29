@@ -25,6 +25,8 @@ export interface AddressDetails {
   city: string;
   pincode: string;
   landmark?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 /**
@@ -580,7 +582,7 @@ export const reverseGeocode = async (
 /**
  * Get current location and reverse geocode to address
  * Handles permission request and location fetching
- * @returns Promise<AddressDetails> - Complete address details
+ * @returns Promise<AddressDetails> - Complete address details with coordinates
  */
 export const getCurrentLocationAddress = async (): Promise<AddressDetails> => {
   // Check permission first
@@ -603,6 +605,11 @@ export const getCurrentLocationAddress = async (): Promise<AddressDetails> => {
     coordinates.longitude
   );
 
-  return addressDetails;
+  // Include coordinates in the response
+  return {
+    ...addressDetails,
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+  };
 };
 

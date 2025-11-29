@@ -24,25 +24,34 @@ import type {
  * Token Storage Implementation
  * Using AsyncStorage for React Native (can be replaced with SecureStore for sensitive data)
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 class DefaultTokenStorage implements TokenStorage {
-  private token: string | null = null;
+  private readonly TOKEN_KEY = 'auth_token';
 
   async getToken(): Promise<string | null> {
-    // In production, use AsyncStorage or SecureStore
-    // Example: return await AsyncStorage.getItem('auth_token');
-    return this.token;
+    try {
+      return await AsyncStorage.getItem(this.TOKEN_KEY);
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+      return null;
+    }
   }
 
   async setToken(token: string): Promise<void> {
-    // In production, use AsyncStorage or SecureStore
-    // Example: await AsyncStorage.setItem('auth_token', token);
-    this.token = token;
+    try {
+      await AsyncStorage.setItem(this.TOKEN_KEY, token);
+    } catch (error) {
+      console.error('Error storing auth token:', error);
+    }
   }
 
   async removeToken(): Promise<void> {
-    // In production, use AsyncStorage or SecureStore
-    // Example: await AsyncStorage.removeItem('auth_token');
-    this.token = null;
+    try {
+      await AsyncStorage.removeItem(this.TOKEN_KEY);
+    } catch (error) {
+      console.error('Error removing auth token:', error);
+    }
   }
 }
 

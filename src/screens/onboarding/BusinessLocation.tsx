@@ -26,6 +26,8 @@ import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
 import { getCurrentLocationAddress } from '../../utils/location';
 import { showError, showSuccess } from '../../utils/flashMessage';
+import { vendorService } from '../../services/api';
+import { userStorage } from '../../utils/storage';
 
 type BusinessLocationProps = AuthStackScreenProps<'BusinessLocation'>;
 
@@ -38,7 +40,10 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
   const [googleMapsLink, setGoogleMapsLink] = useState('');
   const [city, setCity] = useState('');
   const [pincode, setPincode] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{
     addressLine?: string;
     landmark?: string;
@@ -52,7 +57,9 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
     landmark.trim().length > 0 &&
     city.trim().length > 0 &&
     pincode.trim().length === 6 &&
-    /^\d+$/.test(pincode);
+    /^\d+$/.test(pincode) &&
+    latitude !== null &&
+    longitude !== null;
 
   const handleAddressLineChange = (value: string) => {
     setAddressLine(value);
@@ -129,6 +136,12 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
         }
       }
 
+      // Store coordinates
+      if (addressDetails.latitude && addressDetails.longitude) {
+        setLatitude(addressDetails.latitude);
+        setLongitude(addressDetails.longitude);
+      }
+
       showSuccess('Location detected successfully!');
     } catch (error) {
       const errorMessage =
@@ -141,7 +154,11 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
     }
   };
 
-  const handleConfirmLocation = () => {
+  const handleConfirmLocation = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     const validationErrors: typeof errors = {};
     
     if (!addressLine.trim()) {
@@ -165,13 +182,47 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
       }
     }
 
+    // Validate coordinates (required)
+    if (latitude === null || longitude === null) {
+      showError('Please use "Use current location" to get your coordinates.');
+      return;
+    }
+
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
 
-    // Navigate to next onboarding step
-    navigation.navigate('BusinessOwnerDetails');
+    // Get userId from storage
+    const userId = await userStorage.getUserId();
+    if (!userId) {
+      showError('User ID not found. Please login again.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await vendorService.updateBusinessLocation({
+        userId,
+        step: 2,
+        address: addressLine.trim(),
+        landmark: landmark.trim(),
+        googleMapLink: googleMapsLink.trim() || undefined,
+        city: city.trim(),
+        pincode: pincode.trim(),
+        latitude,
+        longitude,
+      });
+
+      showSuccess('Business location saved successfully!');
+      // Navigate to next onboarding step
+      navigation.navigate('BusinessOwnerDetails');
+    } catch (error) {
+      // Error is already handled by the API interceptor and flash message
+      console.error('Error updating business location:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -279,9 +330,9 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
           <OnboardingCTAButton
-            label="Confirm location"
+            label={isSubmitting ? 'Saving...' : 'Confirm location'}
             onPress={handleConfirmLocation}
-            disabled={!isFormComplete}
+            disabled={!isFormComplete || isSubmitting}
           />
         </View>
       </View>

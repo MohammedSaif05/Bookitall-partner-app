@@ -24,6 +24,7 @@ import { ms, vs, hs } from '../../theme/scaling';
 import PrimaryButton from '../../components/auth/PrimaryButton';
 import { authService, type CustomAxiosError } from '../../services/api';
 import { showError } from '../../utils/flashMessage';
+import { userStorage } from '../../utils/storage';
 
 // Illustration image (temporary - same as PhoneNumber)
 const ILLUSTRATION = require('../../assets/webp/illustration_phoneno.webp');
@@ -142,7 +143,9 @@ const OTP: React.FC<OTPProps> = ({ navigation, route }) => {
       });
 
       // Only navigate if success is true
-      if (response.success) {
+      if (response.success && response.data?.userId) {
+        // Store userId for use in onboarding screens
+        await userStorage.setUserId(response.data.userId);
         // Navigate to next screen (BusinessSetup)
         navigation.navigate('BusinessSetup');
       } else {

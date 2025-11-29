@@ -27,6 +27,9 @@ import BackIcon from '../../assets/svg/icons/back.svg';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
+import { vendorService } from '../../services/api';
+import { userStorage } from '../../utils/storage';
+import { showError, showSuccess } from '../../utils/flashMessage';
 
 type BusinessOwnerDetailsProps = AuthStackScreenProps<'BusinessOwnerDetails'>;
 
@@ -38,6 +41,7 @@ const BusinessOwnerDetails: React.FC<BusinessOwnerDetailsProps> = ({ navigation 
   const [alternatePhone, setAlternatePhone] = useState('');
   const [businessEmail, setBusinessEmail] = useState('');
   const [showOwnerNameTooltip, setShowOwnerNameTooltip] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{
     ownerName?: string;
     alternatePhone?: string;
@@ -80,7 +84,11 @@ const BusinessOwnerDetails: React.FC<BusinessOwnerDetailsProps> = ({ navigation 
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     const validationErrors: typeof errors = {};
     
     if (!ownerName.trim()) {
@@ -98,9 +106,32 @@ const BusinessOwnerDetails: React.FC<BusinessOwnerDetailsProps> = ({ navigation 
       return;
     }
 
-    // TODO: Navigate to next onboarding step when available
-    // Navigate to next onboarding step (OperatingHours)
-    navigation.navigate('OperatingHours');
+    // Get userId from storage
+    const userId = await userStorage.getUserId();
+    if (!userId) {
+      showError('User ID not found. Please login again.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await vendorService.updateBusinessOwnerDetails({
+        userId,
+        step: 3,
+        ownerName: ownerName.trim(),
+        businessEmail: businessEmail.trim() || undefined,
+        alternatePhoneNumber: alternatePhone.trim() || undefined,
+      });
+
+      showSuccess('Owner details saved successfully!');
+      // Navigate to next onboarding step (OperatingHours)
+      navigation.navigate('OperatingHours');
+    } catch (error) {
+      // Error is already handled by the API interceptor and flash message
+      console.error('Error updating business owner details:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -200,9 +231,9 @@ const BusinessOwnerDetails: React.FC<BusinessOwnerDetailsProps> = ({ navigation 
 
         <View style={styles.footer}>
           <OnboardingCTAButton
-            label="Next"
+            label={isSubmitting ? 'Saving...' : 'Next'}
             onPress={handleNext}
-            disabled={!isFormComplete}
+            disabled={!isFormComplete || isSubmitting}
           />
         </View>
         </View>

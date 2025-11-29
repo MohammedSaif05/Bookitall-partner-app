@@ -29,6 +29,9 @@ import DropdownIcon from '../../assets/svg/icons/dropdown.svg';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
+import { vendorService } from '../../services/api';
+import { userStorage } from '../../utils/storage';
+import { showError, showSuccess } from '../../utils/flashMessage';
 
 type OperatingHoursProps = AuthStackScreenProps<'OperatingHours'>;
 
@@ -118,6 +121,7 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
     Saturday: {},
     Sunday: {},
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatTime = (hour: number, minute: number): string => {
     const period = hour >= 12 ? 'PM' : 'AM';
@@ -143,6 +147,25 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
     }
     
     return hour * 60 + minute;
+  };
+
+  // Convert time string (e.g., "9:00 AM") to 24-hour format (e.g., "09:00")
+  const convertTo24HourFormat = (timeString: string): string => {
+    const match = timeString.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return '';
+    
+    let hour = parseInt(match[1], 10);
+    const minute = parseInt(match[2], 10);
+    const period = match[3].toUpperCase();
+    
+    // Convert to 24-hour format
+    if (period === 'PM' && hour !== 12) {
+      hour += 12;
+    } else if (period === 'AM' && hour === 12) {
+      hour = 0;
+    }
+    
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
   };
 
   // Validate break periods don't overlap
@@ -879,7 +902,11 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
         return true;
       })());
 
-  const handleSaveAndContinue = () => {
+  const handleSaveAndContinue = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     if (differentTimingsPerDay) {
       // Validate day-wise timings
       const newDayErrors: Record<Day, { startTime?: string; endTime?: string; startEndSame?: string }> = {
@@ -991,6 +1018,55 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
       if (hasErrors) {
         return;
       }
+
+      // Get userId from storage
+      const userId = await userStorage.getUserId();
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        // Build days array for different timings mode
+        const days = selectedDays.map((day) => {
+          const dayTiming = dayTimings[day];
+          const breaks: Array<{ break_start: string; break_end: string }> = [];
+          
+          if (dayTiming.hasBreakHours) {
+            dayTiming.breakPeriods.forEach((bp) => {
+              if (bp.start.trim() && bp.end.trim()) {
+                breaks.push({
+                  break_start: convertTo24HourFormat(bp.start),
+                  break_end: convertTo24HourFormat(bp.end),
+                });
+              }
+            });
+          }
+
+          return {
+            day,
+            start_time: convertTo24HourFormat(dayTiming.startTime),
+            end_time: convertTo24HourFormat(dayTiming.endTime),
+            breaks,
+          };
+        });
+
+        await vendorService.updateOperatingHours({
+          userId,
+          step: 4,
+          different_timings_each_day: true,
+          days,
+        });
+
+        showSuccess('Operating hours saved successfully!');
+        navigation.navigate('SuccessScreen');
+      } catch (error) {
+        // Error is already handled by the API interceptor and flash message
+        console.error('Error updating operating hours:', error);
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
       // Original validation for same timings
       const validationErrors: typeof errors = {};
@@ -1073,11 +1149,49 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
         setErrors(validationErrors);
         return;
       }
-    }
 
-    // TODO: Save operating hours data
-    // Navigate to success screen
-    navigation.navigate('SuccessScreen');
+      // Get userId from storage
+      const userId = await userStorage.getUserId();
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        // Build breaks array
+        const breaks: Array<{ break_start: string; break_end: string }> = [];
+        if (hasBreakHours) {
+          breakPeriods.forEach((bp) => {
+            if (bp.start.trim() && bp.end.trim()) {
+              breaks.push({
+                break_start: convertTo24HourFormat(bp.start),
+                break_end: convertTo24HourFormat(bp.end),
+              });
+            }
+          });
+        }
+
+        await vendorService.updateOperatingHours({
+          userId,
+          step: 4,
+          different_timings_each_day: false,
+          working_days: selectedDays,
+          start_time: convertTo24HourFormat(startTime),
+          end_time: convertTo24HourFormat(endTime),
+          has_break_hours: hasBreakHours,
+          breaks,
+        });
+
+        showSuccess('Operating hours saved successfully!');
+        navigation.navigate('SuccessScreen');
+      } catch (error) {
+        // Error is already handled by the API interceptor and flash message
+        console.error('Error updating operating hours:', error);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
 
   const handleBack = () => {
@@ -1534,9 +1648,9 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
 
           <View style={styles.footer}>
             <OnboardingCTAButton
-              label="Save & Continue"
+              label={isSubmitting ? 'Saving...' : 'Save & Continue'}
               onPress={handleSaveAndContinue}
-              disabled={!isFormComplete}
+              disabled={!isFormComplete || isSubmitting}
             />
           </View>
         </View>

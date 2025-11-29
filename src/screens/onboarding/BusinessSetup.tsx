@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,9 @@ import InfoIcon from '../../assets/svg/icons/info.svg';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
+import { vendorService, type CustomAxiosError } from '../../services/api';
+import { showError } from '../../utils/flashMessage';
+import { userStorage } from '../../utils/storage';
 
 type BusinessSetupProps = AuthStackScreenProps<'BusinessSetup'>;
 
@@ -41,11 +44,22 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
   const [openSelector, setOpenSelector] = useState<'category' | 'type' | null>(null);
   const [showBusinessNameTooltip, setShowBusinessNameTooltip] = useState(false);
   const [activeInfoOption, setActiveInfoOption] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{
     businessName?: string;
     businessCategory?: string;
     businessType?: string;
   }>({});
+
+  // Get userId on component mount
+  useEffect(() => {
+    const loadUserId = async () => {
+      const id = await userStorage.getUserId();
+      setUserId(id);
+    };
+    loadUserId();
+  }, []);
 
   const isFormComplete =
     businessName.trim().length > 0 && Boolean(businessCategory) && Boolean(businessType);
@@ -127,7 +141,7 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
     setOpenSelector(null);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     const validationErrors: typeof errors = {};
     if (!businessName.trim()) {
       validationErrors.businessName = 'Please enter your business name.';
@@ -144,8 +158,41 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
       return;
     }
 
-    // Navigate to next onboarding step
-    navigation.navigate('BusinessLocation');
+    if (!userId) {
+      showError('User ID not found. Please try logging in again.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await vendorService.updateBusinessSetup({
+        userId,
+        step: 1,
+        businessName: businessName.trim(),
+        businessCategory: businessCategory!,
+        businessType: businessType!,
+      });
+
+      if (response.success) {
+        // Navigate to next onboarding step
+        navigation.navigate('BusinessLocation');
+      } else {
+        showError(
+          response.message || 'Failed to save business details. Please try again.'
+        );
+      }
+    } catch (error) {
+      // Handle API errors
+      const apiError = error as CustomAxiosError;
+      const errorMessage =
+        apiError.response?.data?.message ||
+        apiError.response?.data?.error ||
+        'Network error. Please check your internet connection and try again.';
+      
+      showError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -215,7 +262,7 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
           <OnboardingCTAButton
             label="Continue"
             onPress={handleContinue}
-            disabled={!isFormComplete}
+            disabled={!isFormComplete || loading}
           />
         </View>
         </View>

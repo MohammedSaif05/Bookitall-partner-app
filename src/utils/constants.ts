@@ -37,5 +37,9 @@ export const API_ENDPOINTS = {
     VERIFY_OTP: '/api/auth/verify-otp',
     RESEND_OTP: '/api/auth/resend-otp',
   },
+  // Vendor endpoints
+  VENDOR: {
+    ONBOARDING: '/api/vendor',
+  },
 } as const;
 
