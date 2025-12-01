@@ -105,6 +105,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: vs(12),
+    fontSize: 32,
+    lineHeight: 40,
+    letterSpacing: -0.96,
   },
   subtitle: {
     ...typography.body,

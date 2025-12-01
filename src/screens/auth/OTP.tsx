@@ -319,6 +319,10 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: vs(8),
     textAlign: 'left',
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: '700',
+    letterSpacing: -0.96,
   },
   resendText: {
     ...typography.body,

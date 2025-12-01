@@ -48,6 +48,7 @@ export const typography = {
     fontFamily: fonts.manrope.bold,
     fontSize: 32,
     lineHeight: 40,
+    letterSpacing: -0.96,
   },
   h1: {
     fontFamily: fonts.manrope.bold,
@@ -71,8 +72,9 @@ export const typography = {
   },
   body: {
     fontFamily: fonts.manrope.regular,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0,
   },
   bodySmall: {
     fontFamily: fonts.manrope.regular,

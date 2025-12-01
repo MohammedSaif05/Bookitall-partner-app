@@ -128,7 +128,7 @@ const PhoneNumber: React.FC<PhoneNumberProps> = ({ navigation }) => {
 
           {/* Title Section */}
           <View style={styles.titleSection}>
-            <Text style={styles.title}>Enter your phone number</Text>
+            <Text style={styles.title}>Enter your{'\n'}phone number</Text>
             <Text style={styles.description}>We'll send you an OTP to continue</Text>
           </View>
 
@@ -233,6 +233,10 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: vs(8),
     textAlign: 'left',
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: '700',
+    letterSpacing: -0.96,
   },
   description: {
     ...typography.body,
@@ -289,7 +293,6 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.text.primary,
     textAlign: 'center',
-    lineHeight: vs(20),
   },
   termsLink: {
     ...typography.bodySmall,

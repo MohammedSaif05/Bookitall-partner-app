@@ -273,6 +273,10 @@ const styles = StyleSheet.create({
     ...typography.display,
     color: colors.text.primary,
     marginBottom: vs(12),
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: '700',
+    letterSpacing: -0.96,
   },
   subtitle: {
     ...typography.body,

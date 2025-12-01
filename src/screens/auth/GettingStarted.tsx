@@ -36,7 +36,7 @@ const ILLUSTRATIONS = [
 // Onboarding content for each slide
 const ONBOARDING_CONTENT = [
   {
-    quote: "We'll send you an OTP to continue",
+    quote: "Welcome to the future of booking",
     title: "Your visit\nmade simple",
     description: "Reserve your spot, show up, and get what you came for. Easy.",
   },
@@ -218,11 +218,14 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: vs(12),
     textAlign: 'left',
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: '700',
+    letterSpacing: -0.96,
   },
   marketingDescription: {
     ...typography.body,
     color: colors.text.primary,
-    lineHeight: vs(20),
     textAlign: 'left',
   },
   buttonContainer: {
