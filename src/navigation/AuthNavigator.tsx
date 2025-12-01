@@ -13,14 +13,20 @@ import { BusinessSetup, BusinessLocation, BusinessOwnerDetails, OperatingHours, 
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
+interface AuthNavigatorProps {
+  initialRouteName?: keyof AuthStackParamList;
+}
+
 /**
  * AuthNavigator Component
  * Stack navigator for authentication flow
  */
-const AuthNavigator: React.FC = () => {
+const AuthNavigator: React.FC<AuthNavigatorProps> = ({ 
+  initialRouteName = 'GettingStarted' 
+}) => {
   return (
     <Stack.Navigator
-      initialRouteName="GettingStarted"
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',

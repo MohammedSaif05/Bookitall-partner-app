@@ -23,6 +23,7 @@ export type {
   OperatingHoursDifferentRequest,
   BreakPeriod,
   DayTiming,
+  VendorData,
 } from './vendor.service';
 export * from './auth.service';
 

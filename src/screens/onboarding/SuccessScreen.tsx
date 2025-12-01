@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LottieView from 'lottie-react-native';
 import type { AuthStackScreenProps } from '../../navigation/types';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
@@ -33,11 +34,14 @@ const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation: _navigation }
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
         <View style={styles.content}>
-          {/* Illustration Placeholder */}
+          {/* Lottie Animation */}
           <View style={styles.illustrationContainer}>
-            <Text style={styles.illustrationPlaceholder}>
-              Confetti and some illustrations supporting the screen
-            </Text>
+            <LottieView
+              source={require('../../assets/lottie/confitte.json')}
+              autoPlay
+              loop={false}
+              style={styles.lottieAnimation}
+            />
           </View>
 
           {/* Title and Subtitle */}
@@ -83,17 +87,13 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1.2,
     maxHeight: vs(300),
-    backgroundColor: colors.text.primary,
-    borderRadius: ms(16),
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: vs(40),
   },
-  illustrationPlaceholder: {
-    ...typography.body,
-    color: colors.text.white,
-    textAlign: 'center',
-    paddingHorizontal: hs(24),
+  lottieAnimation: {
+    width: '100%',
+    height: '100%',
   },
   textContainer: {
     alignItems: 'center',

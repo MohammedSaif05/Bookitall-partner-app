@@ -22,7 +22,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { ms, vs, hs } from '../../theme/scaling';
 import PrimaryButton from '../../components/auth/PrimaryButton';
-import { authService, type CustomAxiosError } from '../../services/api';
+import { authService, vendorService, type CustomAxiosError } from '../../services/api';
 import { showError } from '../../utils/flashMessage';
 import { userStorage } from '../../utils/storage';
 
@@ -144,10 +144,36 @@ const OTP: React.FC<OTPProps> = ({ navigation, route }) => {
 
       // Only navigate if success is true
       if (response.success && response.data?.userId) {
+        const userId = response.data.userId;
+        
         // Store userId for use in onboarding screens
-        await userStorage.setUserId(response.data.userId);
-        // Navigate to next screen (BusinessSetup)
-        navigation.navigate('BusinessSetup');
+        await userStorage.setUserId(userId);
+
+        // Call vendor API to check onboarding status
+        try {
+          const vendorResponse = await vendorService.getVendorByUserId(userId);
+          
+          if (vendorResponse.success && vendorResponse.data) {
+            const isOnBoardCompleted = vendorResponse.data.isOnBoardCompleted || false;
+            
+            // Store isOnBoardCompleted status
+            await userStorage.setIsOnBoardCompleted(isOnBoardCompleted);
+            
+            // Navigate based on onboarding status
+            if (isOnBoardCompleted) {
+              navigation.navigate('SuccessScreen');
+            } else {
+              navigation.navigate('BusinessSetup');
+            }
+          } else {
+            // If vendor API fails, navigate to onboarding
+            navigation.navigate('BusinessSetup');
+          }
+        } catch (vendorError) {
+          // If vendor API fails, navigate to onboarding
+          console.error('Error fetching vendor data:', vendorError);
+          navigation.navigate('BusinessSetup');
+        }
       } else {
         // Show error message if success is false
         showError(

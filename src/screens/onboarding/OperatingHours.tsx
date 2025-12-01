@@ -369,6 +369,32 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
         return newErrors;
       });
       
+      // Validate break start is within operating hours
+      if (startTime && endTime) {
+        const breakStartMinutes = timeToMinutes(formattedTime);
+        const dayStartMinutes = timeToMinutes(startTime);
+        const dayEndMinutes = timeToMinutes(endTime);
+        
+        if (breakStartMinutes !== null && dayStartMinutes !== null && dayEndMinutes !== null) {
+          if (breakStartMinutes < dayStartMinutes) {
+            setBreakErrors((prev) => ({
+              ...prev,
+              [breakId]: { ...prev[breakId], start: 'Break start time cannot be before operating hours start time.' },
+            }));
+            setShowTimePicker({ visible: false, type: 'start' });
+            return;
+          }
+          if (breakStartMinutes > dayEndMinutes) {
+            setBreakErrors((prev) => ({
+              ...prev,
+              [breakId]: { ...prev[breakId], start: 'Break start time cannot be after operating hours end time.' },
+            }));
+            setShowTimePicker({ visible: false, type: 'start' });
+            return;
+          }
+        }
+      }
+
       // Validate if break end is set
       const breakEnd = updated[showTimePicker.breakIndex].end;
       if (breakEnd) {
@@ -390,14 +416,8 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
             // Clear sameTime error if validation passes
             setBreakErrors((prev) => {
               const newErrors = { ...prev };
-              if (newErrors[breakId]?.sameTime) {
-                const updatedError = { ...newErrors[breakId] };
-                delete updatedError.sameTime;
-                if (Object.keys(updatedError).length > 0) {
-                  newErrors[breakId] = updatedError;
-                } else {
-                  delete newErrors[breakId];
-                }
+              if (newErrors[breakId]) {
+                newErrors[breakId] = { ...newErrors[breakId], start: undefined, sameTime: undefined, overlap: undefined };
               }
               return newErrors;
             });
@@ -406,6 +426,14 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
           }
         }
       } else {
+        // Clear start error if validation passes
+        setBreakErrors((prev) => {
+          const newErrors = { ...prev };
+          if (newErrors[breakId]) {
+            newErrors[breakId] = { ...newErrors[breakId], start: undefined };
+          }
+          return newErrors;
+        });
         // Validate overlaps even if end is not set (check if start conflicts)
         validateBreakPeriods(updated);
       }
@@ -424,6 +452,32 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
         return newErrors;
       });
       
+      // Validate break end is within operating hours
+      if (startTime && endTime) {
+        const breakEndMinutes = timeToMinutes(formattedTime);
+        const dayStartMinutes = timeToMinutes(startTime);
+        const dayEndMinutes = timeToMinutes(endTime);
+        
+        if (breakEndMinutes !== null && dayStartMinutes !== null && dayEndMinutes !== null) {
+          if (breakEndMinutes < dayStartMinutes) {
+            setBreakErrors((prev) => ({
+              ...prev,
+              [breakId]: { ...prev[breakId], end: 'Break end time cannot be before operating hours start time.' },
+            }));
+            setShowTimePicker({ visible: false, type: 'start' });
+            return;
+          }
+          if (breakEndMinutes > dayEndMinutes) {
+            setBreakErrors((prev) => ({
+              ...prev,
+              [breakId]: { ...prev[breakId], end: 'Break end time cannot be after operating hours end time.' },
+            }));
+            setShowTimePicker({ visible: false, type: 'start' });
+            return;
+          }
+        }
+      }
+
       // Validate if break start is set
       const breakStart = updated[showTimePicker.breakIndex].start;
       if (breakStart) {
@@ -445,14 +499,8 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
             // Clear sameTime error if validation passes
             setBreakErrors((prev) => {
               const newErrors = { ...prev };
-              if (newErrors[breakId]?.sameTime) {
-                const updatedError = { ...newErrors[breakId] };
-                delete updatedError.sameTime;
-                if (Object.keys(updatedError).length > 0) {
-                  newErrors[breakId] = updatedError;
-                } else {
-                  delete newErrors[breakId];
-                }
+              if (newErrors[breakId]) {
+                newErrors[breakId] = { ...newErrors[breakId], end: undefined, sameTime: undefined, overlap: undefined };
               }
               return newErrors;
             });
@@ -461,6 +509,14 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
           }
         }
       } else {
+        // Clear end error if validation passes
+        setBreakErrors((prev) => {
+          const newErrors = { ...prev };
+          if (newErrors[breakId]) {
+            newErrors[breakId] = { ...newErrors[breakId], end: undefined };
+          }
+          return newErrors;
+        });
         // Validate overlaps even if start is not set (check if end conflicts)
         validateBreakPeriods(updated);
       }
@@ -614,6 +670,41 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
           return { ...prevErrors, [day]: dayBreakErrorsLocal };
         });
 
+        // Validate break start is within day's operating hours
+        let breakStartValid = true;
+        if (dayTiming.startTime && dayTiming.endTime) {
+          const breakStartMinutes = timeToMinutes(formattedTime);
+          const dayStartMinutes = timeToMinutes(dayTiming.startTime);
+          const dayEndMinutes = timeToMinutes(dayTiming.endTime);
+          
+          if (breakStartMinutes !== null && dayStartMinutes !== null && dayEndMinutes !== null) {
+            if (breakStartMinutes < dayStartMinutes) {
+              setDayBreakErrors((prevErrors) => ({
+                ...prevErrors,
+                [day]: {
+                  ...prevErrors[day],
+                  [breakId]: { ...prevErrors[day][breakId], start: 'Break start time cannot be before operating hours start time.' },
+                },
+              }));
+              breakStartValid = false;
+            } else if (breakStartMinutes > dayEndMinutes) {
+              setDayBreakErrors((prevErrors) => ({
+                ...prevErrors,
+                [day]: {
+                  ...prevErrors[day],
+                  [breakId]: { ...prevErrors[day][breakId], start: 'Break start time cannot be after operating hours end time.' },
+                },
+              }));
+              breakStartValid = false;
+            }
+          }
+        }
+        
+        if (!breakStartValid) {
+          updated[day] = dayTiming;
+          return updated;
+        }
+
         const breakEnd = updatedBreakPeriods[showTimePicker.breakIndex].end;
         if (breakEnd) {
           if (breakEnd === formattedTime) {
@@ -636,10 +727,26 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
                 },
               }));
             } else {
+              // Clear start error if validation passes
+              setDayBreakErrors((prevErrors) => {
+                const dayBreakErrorsLocal = { ...prevErrors[day] };
+                if (dayBreakErrorsLocal[breakId]) {
+                  dayBreakErrorsLocal[breakId] = { ...dayBreakErrorsLocal[breakId], start: undefined, sameTime: undefined, overlap: undefined };
+                }
+                return { ...prevErrors, [day]: dayBreakErrorsLocal };
+              });
               validateDayBreakPeriods(day, updatedBreakPeriods);
             }
           }
         } else {
+          // Clear start error if validation passes
+          setDayBreakErrors((prevErrors) => {
+            const dayBreakErrorsLocal = { ...prevErrors[day] };
+            if (dayBreakErrorsLocal[breakId]) {
+              dayBreakErrorsLocal[breakId] = { ...dayBreakErrorsLocal[breakId], start: undefined };
+            }
+            return { ...prevErrors, [day]: dayBreakErrorsLocal };
+          });
           validateDayBreakPeriods(day, updatedBreakPeriods);
         }
       } else if (showTimePicker.type === 'breakEnd' && showTimePicker.breakIndex !== undefined) {
@@ -655,6 +762,41 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
           }
           return { ...prevErrors, [day]: dayBreakErrorsLocal };
         });
+
+        // Validate break end is within day's operating hours
+        let breakEndValid = true;
+        if (dayTiming.startTime && dayTiming.endTime) {
+          const breakEndMinutes = timeToMinutes(formattedTime);
+          const dayStartMinutes = timeToMinutes(dayTiming.startTime);
+          const dayEndMinutes = timeToMinutes(dayTiming.endTime);
+          
+          if (breakEndMinutes !== null && dayStartMinutes !== null && dayEndMinutes !== null) {
+            if (breakEndMinutes < dayStartMinutes) {
+              setDayBreakErrors((prevErrors) => ({
+                ...prevErrors,
+                [day]: {
+                  ...prevErrors[day],
+                  [breakId]: { ...prevErrors[day][breakId], end: 'Break end time cannot be before operating hours start time.' },
+                },
+              }));
+              breakEndValid = false;
+            } else if (breakEndMinutes > dayEndMinutes) {
+              setDayBreakErrors((prevErrors) => ({
+                ...prevErrors,
+                [day]: {
+                  ...prevErrors[day],
+                  [breakId]: { ...prevErrors[day][breakId], end: 'Break end time cannot be after operating hours end time.' },
+                },
+              }));
+              breakEndValid = false;
+            }
+          }
+        }
+        
+        if (!breakEndValid) {
+          updated[day] = dayTiming;
+          return updated;
+        }
 
         const breakStart = updatedBreakPeriods[showTimePicker.breakIndex].start;
         if (breakStart) {
@@ -678,10 +820,26 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
                 },
               }));
             } else {
+              // Clear end error if validation passes
+              setDayBreakErrors((prevErrors) => {
+                const dayBreakErrorsLocal = { ...prevErrors[day] };
+                if (dayBreakErrorsLocal[breakId]) {
+                  dayBreakErrorsLocal[breakId] = { ...dayBreakErrorsLocal[breakId], end: undefined, sameTime: undefined, overlap: undefined };
+                }
+                return { ...prevErrors, [day]: dayBreakErrorsLocal };
+              });
               validateDayBreakPeriods(day, updatedBreakPeriods);
             }
           }
         } else {
+          // Clear end error if validation passes
+          setDayBreakErrors((prevErrors) => {
+            const dayBreakErrorsLocal = { ...prevErrors[day] };
+            if (dayBreakErrorsLocal[breakId]) {
+              dayBreakErrorsLocal[breakId] = { ...dayBreakErrorsLocal[breakId], end: undefined };
+            }
+            return { ...prevErrors, [day]: dayBreakErrorsLocal };
+          });
           validateDayBreakPeriods(day, updatedBreakPeriods);
         }
       }
@@ -808,11 +966,22 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
         if (startMins === null || endMins === null || startMins >= endMins) return false;
         
         if (dayTiming.hasBreakHours) {
+          const dayStartMins = timeToMinutes(dayTiming.startTime);
+          const dayEndMins = timeToMinutes(dayTiming.endTime);
+          
           if (!dayTiming.breakPeriods.every((bp) => {
             if (!bp.start.trim() || !bp.end.trim() || bp.start === bp.end) return false;
             const bpStartMins = timeToMinutes(bp.start);
             const bpEndMins = timeToMinutes(bp.end);
-            return bpStartMins !== null && bpEndMins !== null && bpStartMins < bpEndMins;
+            if (bpStartMins === null || bpEndMins === null || bpStartMins >= bpEndMins) return false;
+            
+            // Check break period is within operating hours
+            if (dayStartMins !== null && dayEndMins !== null) {
+              if (bpStartMins < dayStartMins || bpStartMins > dayEndMins) return false;
+              if (bpEndMins < dayStartMins || bpEndMins > dayEndMins) return false;
+            }
+            
+            return true;
           })) {
             return false;
           }
@@ -858,12 +1027,23 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
         return startMins !== null && endMins !== null && startMins < endMins;
       })() &&
       (!hasBreakHours || (() => {
+        const dayStartMins = timeToMinutes(startTime);
+        const dayEndMins = timeToMinutes(endTime);
+        
         // Check each break period is valid
         if (!breakPeriods.every((bp) => {
           if (!bp.start.trim() || !bp.end.trim() || bp.start === bp.end) return false;
           const startMins = timeToMinutes(bp.start);
           const endMins = timeToMinutes(bp.end);
-          return startMins !== null && endMins !== null && startMins < endMins;
+          if (startMins === null || endMins === null || startMins >= endMins) return false;
+          
+          // Check break period is within operating hours
+          if (dayStartMins !== null && dayEndMins !== null) {
+            if (startMins < dayStartMins || startMins > dayEndMins) return false;
+            if (endMins < dayStartMins || endMins > dayEndMins) return false;
+          }
+          
+          return true;
         })) {
           return false;
         }
@@ -954,6 +1134,8 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
         
         if (dayTiming.hasBreakHours) {
           const newBreakErrors: Record<string, { start?: string; end?: string; sameTime?: string; overlap?: string }> = {};
+          const dayStartMins = timeToMinutes(dayTiming.startTime);
+          const dayEndMins = timeToMinutes(dayTiming.endTime);
           
           dayTiming.breakPeriods.forEach((bp, bpIndex) => {
             const periodErrors: { start?: string; end?: string; sameTime?: string; overlap?: string } = {};
@@ -977,6 +1159,26 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
                   periodErrors.sameTime = 'Break start time must be before break end time.';
                   hasErrors = true;
                 } else if (startMins !== null && endMins !== null) {
+                  // Check break period is within operating hours
+                  if (dayStartMins !== null && dayEndMins !== null) {
+                    if (startMins < dayStartMins) {
+                      periodErrors.start = 'Break start time cannot be before operating hours start time.';
+                      hasErrors = true;
+                    }
+                    if (startMins > dayEndMins) {
+                      periodErrors.start = 'Break start time cannot be after operating hours end time.';
+                      hasErrors = true;
+                    }
+                    if (endMins < dayStartMins) {
+                      periodErrors.end = 'Break end time cannot be before operating hours start time.';
+                      hasErrors = true;
+                    }
+                    if (endMins > dayEndMins) {
+                      periodErrors.end = 'Break end time cannot be after operating hours end time.';
+                      hasErrors = true;
+                    }
+                  }
+                  
                   // Check for overlaps
                   dayTiming.breakPeriods.forEach((otherBp, otherIndex) => {
                     if (bpIndex !== otherIndex && otherBp.start.trim() && otherBp.end.trim()) {
@@ -1052,12 +1254,17 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
           };
         });
 
-        await vendorService.updateOperatingHours({
+        const response = await vendorService.updateOperatingHours({
           userId,
           step: 4,
           different_timings_each_day: true,
           days,
         });
+
+        // If step 4 API is successful, mark onboarding as completed
+        if (response.success) {
+          await userStorage.setIsOnBoardCompleted(true);
+        }
 
         showSuccess('Operating hours saved successfully!');
         navigation.navigate('SuccessScreen');
@@ -1093,6 +1300,9 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
       }
       if (hasBreakHours) {
       const newBreakErrors: Record<string, { start?: string; end?: string; sameTime?: string; overlap?: string }> = {};
+      const dayStartMins = timeToMinutes(startTime);
+      const dayEndMins = timeToMinutes(endTime);
+      
       breakPeriods.forEach((bp, bpIndex) => {
         const periodErrors: { start?: string; end?: string; sameTime?: string; overlap?: string } = {};
         
@@ -1115,6 +1325,26 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
               periodErrors.sameTime = 'Break start time must be before break end time.';
               validationErrors.breakSameTime = 'Break start time must be before break end time.';
             } else if (startMins !== null && endMins !== null) {
+              // Check break period is within operating hours
+              if (dayStartMins !== null && dayEndMins !== null) {
+                if (startMins < dayStartMins) {
+                  periodErrors.start = 'Break start time cannot be before operating hours start time.';
+                  validationErrors.breakStart = 'Break start time cannot be before operating hours start time.';
+                }
+                if (startMins > dayEndMins) {
+                  periodErrors.start = 'Break start time cannot be after operating hours end time.';
+                  validationErrors.breakStart = 'Break start time cannot be after operating hours end time.';
+                }
+                if (endMins < dayStartMins) {
+                  periodErrors.end = 'Break end time cannot be before operating hours start time.';
+                  validationErrors.breakEnd = 'Break end time cannot be before operating hours start time.';
+                }
+                if (endMins > dayEndMins) {
+                  periodErrors.end = 'Break end time cannot be after operating hours end time.';
+                  validationErrors.breakEnd = 'Break end time cannot be after operating hours end time.';
+                }
+              }
+              
               // Check for overlaps with other break periods
               breakPeriods.forEach((otherBp, otherIndex) => {
                 if (bpIndex !== otherIndex && otherBp.start.trim() && otherBp.end.trim()) {
@@ -1172,7 +1402,7 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
           });
         }
 
-        await vendorService.updateOperatingHours({
+        const response = await vendorService.updateOperatingHours({
           userId,
           step: 4,
           different_timings_each_day: false,
@@ -1182,6 +1412,11 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
           has_break_hours: hasBreakHours,
           breaks,
         });
+
+        // If step 4 API is successful, mark onboarding as completed
+        if (response.success) {
+          await userStorage.setIsOnBoardCompleted(true);
+        }
 
         showSuccess('Operating hours saved successfully!');
         navigation.navigate('SuccessScreen');

@@ -5,18 +5,22 @@
  * @format
  */
 
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useState, useEffect, useRef } from 'react';
 import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainerRef } from '@react-navigation/native';
 import FlashMessage from 'react-native-flash-message';
 import RNBootSplash from 'react-native-bootsplash';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import SplashScreen from './src/components/SplashScreen';
 import { RootNavigator } from './src/navigation';
+import type { RootStackParamList } from './src/navigation/types';
+import { userStorage } from './src/utils/storage';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   const [isSplashVisible, setIsSplashVisible] = useState(true);
+  const [shouldNavigateToSuccess, setShouldNavigateToSuccess] = useState(false);
 
   // Hide native splash IMMEDIATELY when App component mounts - before any rendering
   // useLayoutEffect runs synchronously before react-native paint
@@ -41,6 +45,26 @@ function App() {
     };
   }, []);
 
+  // Check storage in parallel while splash screen animation is playing
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const userId = await userStorage.getUserId();
+        const isOnBoardCompleted = await userStorage.getIsOnBoardCompleted();
+
+        // If both userId and isOnBoardCompleted are true, set flag to navigate to SuccessScreen
+        if (userId && isOnBoardCompleted) {
+          setShouldNavigateToSuccess(true);
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      }
+    };
+
+    // Check immediately when component mounts (during splash animation)
+    checkOnboardingStatus();
+  }, []);
+
   return (
     <ErrorBoundary
       onError={(error, errorInfo) => {
@@ -56,7 +80,7 @@ function App() {
             onAnimationComplete={() => setIsSplashVisible(false)}
           />
         ) : (
-          <AppContent />
+          <AppContent shouldNavigateToSuccess={shouldNavigateToSuccess} />
         )}
         <FlashMessage position="bottom" />
       </SafeAreaProvider>
@@ -64,8 +88,20 @@ function App() {
   );
 }
 
-function AppContent() {
-  return <RootNavigator />;
+interface AppContentProps {
+  shouldNavigateToSuccess: boolean;
+}
+
+function AppContent({ shouldNavigateToSuccess }: AppContentProps) {
+  const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
+
+  return (
+    <RootNavigator
+      ref={navigationRef}
+      onReady={() => {}}
+      initialAuthRoute={shouldNavigateToSuccess ? 'SuccessScreen' : 'GettingStarted'}
+    />
+  );
 }
 
 export default App;

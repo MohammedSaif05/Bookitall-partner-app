@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { typography } from '../../theme/fonts';
 import { ms, vs, hs } from '../../theme/scaling';
 import DotIndicator from '../../components/auth/DotIndicator';
 import PrimaryButton from '../../components/auth/PrimaryButton';
+import { userStorage } from '../../utils/storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -60,6 +61,25 @@ type GettingStartedProps = AuthStackScreenProps<'GettingStarted'>;
 const GettingStarted: React.FC<GettingStartedProps> = ({ navigation }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // Check if user has completed onboarding and redirect to SuccessScreen
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const userId = await userStorage.getUserId();
+        const isOnBoardCompleted = await userStorage.getIsOnBoardCompleted();
+
+        // If both userId and isOnBoardCompleted are true, navigate to SuccessScreen
+        if (userId && isOnBoardCompleted) {
+          navigation.replace('SuccessScreen');
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [navigation]);
 
   /**
    * Handle scroll event to update active dot indicator

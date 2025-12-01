@@ -102,10 +102,73 @@ export interface OperatingHoursDifferentRequest {
 export type OperatingHoursRequest = OperatingHoursSameRequest | OperatingHoursDifferentRequest;
 
 /**
+ * Vendor Data Response
+ * Response structure for vendor data
+ */
+export interface VendorData {
+  _id: string;
+  userId: string;
+  __v: number;
+  breaks: Array<{
+    break_start: string;
+    break_end: string;
+  }>;
+  createdAt: string;
+  days: Array<{
+    day: string;
+    start_time: string;
+    end_time: string;
+    breaks: Array<{
+      break_start: string;
+      break_end: string;
+    }>;
+  }>;
+  mobileNo: string;
+  updatedAt: string;
+  workingDays: string[];
+  businessCategory: string;
+  businessName: string;
+  businessType: string;
+  step: number;
+  address: string;
+  city: string;
+  googleMapLink?: string;
+  landmark: string;
+  latitude: number;
+  longitude: number;
+  pincode: string;
+  alternatePhoneNumber?: string;
+  businessEmail?: string;
+  ownerName: string;
+  differentTimingsEachDay: boolean;
+  endTime?: string;
+  hasBreakHours: boolean;
+  startTime?: string;
+  isOnBoardCompleted: boolean;
+  isBusinessVerified: boolean;
+}
+
+/**
  * Vendor Service
  * Provides methods for vendor onboarding operations
  */
 class VendorService {
+  /**
+   * Get vendor data by userId
+   * @param userId - User ID
+   * @returns Promise with vendor data response
+   */
+  async getVendorByUserId(userId: string): Promise<ApiResponse<VendorData>> {
+    try {
+      const response = await apiClient.get<VendorData>(
+        `${API_ENDPOINTS.VENDOR.GET_VENDOR}/${userId}`
+      );
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
   /**
    * Update business setup (Step 1)
    * @param payload - Business setup data

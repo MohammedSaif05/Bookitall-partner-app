@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEYS = {
   USER_ID: 'user_id',
   AUTH_TOKEN: 'auth_token',
+  IS_ONBOARD_COMPLETED: 'is_onboard_completed',
 } as const;
 
 /**
@@ -89,6 +90,41 @@ class UserStorage {
   }
 
   /**
+   * Get stored isOnBoardCompleted status
+   */
+  async getIsOnBoardCompleted(): Promise<boolean> {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEYS.IS_ONBOARD_COMPLETED);
+      return value === 'true';
+    } catch (error) {
+      console.error('Error getting isOnBoardCompleted:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Store isOnBoardCompleted status
+   */
+  async setIsOnBoardCompleted(isCompleted: boolean): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.IS_ONBOARD_COMPLETED, String(isCompleted));
+    } catch (error) {
+      console.error('Error storing isOnBoardCompleted:', error);
+    }
+  }
+
+  /**
+   * Remove isOnBoardCompleted status
+   */
+  async removeIsOnBoardCompleted(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.IS_ONBOARD_COMPLETED);
+    } catch (error) {
+      console.error('Error removing isOnBoardCompleted:', error);
+    }
+  }
+
+  /**
    * Clear all user data
    */
   async clearAll(): Promise<void> {
@@ -96,6 +132,7 @@ class UserStorage {
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.USER_ID,
         STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.IS_ONBOARD_COMPLETED,
       ]);
     } catch (error) {
       console.error('Error clearing user data:', error);
