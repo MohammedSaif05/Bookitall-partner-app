@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import BackIcon from '../../assets/svg/icons/back.svg';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
-import { getCurrentLocationAddress } from '../../utils/location';
+import { getCurrentLocationAddress, requestLocationPermission } from '../../utils/location';
 import { showError, showSuccess } from '../../utils/flashMessage';
 import { vendorService } from '../../services/api';
 import { userStorage } from '../../utils/storage';
@@ -60,6 +60,21 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
     /^\d+$/.test(pincode) &&
     latitude !== null &&
     longitude !== null;
+
+  // Request location permission when screen loads
+  useEffect(() => {
+    const requestPermission = async () => {
+      try {
+        await requestLocationPermission();
+      } catch (error) {
+        // Silently handle permission request errors
+        // User will be prompted when they click "Use current location"
+        console.warn('Failed to request location permission on mount:', error);
+      }
+    };
+
+    requestPermission();
+  }, []);
 
   const handleAddressLineChange = (value: string) => {
     setAddressLine(value);

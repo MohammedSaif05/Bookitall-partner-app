@@ -52,9 +52,22 @@ export const requestLocationPermission = async (): Promise<boolean> => {
       return false;
     }
   }
-  // iOS permissions are handled via Info.plist
-  // The permission dialog will appear automatically when requesting location
-  return true;
+  
+  // iOS: Use react-native-geolocation-service's requestAuthorization
+  // This will prompt the user if permission hasn't been granted yet
+  // If already granted, it returns 'granted' without prompting again
+  if (Platform.OS === 'ios') {
+    try {
+      const authStatus = await Geolocation.requestAuthorization('whenInUse');
+      // Authorization status: 'granted', 'denied', 'restricted', 'disabled'
+      return authStatus === 'granted';
+    } catch (err) {
+      console.warn('iOS location permission error:', err);
+      return false;
+    }
+  }
+  
+  return false;
 };
 
 /**
@@ -68,8 +81,21 @@ export const checkLocationPermission = async (): Promise<boolean> => {
     );
     return result;
   }
-  // For iOS, we'll try to get location and handle error if permission not granted
-  return true;
+  
+  // iOS: requestAuthorization is idempotent - if already granted, it returns 'granted' without prompting
+  // So we can safely use it to check the current status
+  if (Platform.OS === 'ios') {
+    try {
+      const authStatus = await Geolocation.requestAuthorization('whenInUse');
+      // Authorization status: 'granted', 'denied', 'restricted', 'disabled'
+      return authStatus === 'granted';
+    } catch (err) {
+      console.warn('iOS location permission check error:', err);
+      return false;
+    }
+  }
+  
+  return false;
 };
 
 /**
