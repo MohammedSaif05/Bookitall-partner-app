@@ -110,11 +110,22 @@ export const getCurrentLocation = (
     fastMode?: boolean; // Fast mode: accept lower accuracy for speed
   }
 ): Promise<LocationCoordinates> => {
-  const { useWatchPosition = false, watchTimeout = 4000, fastMode = true } = options || {};
+  // Platform-specific defaults for better iOS accuracy
+  const isIOS = Platform.OS === 'ios';
+  const defaultUseWatchPosition = isIOS ? true : false; // Use watchPosition by default on iOS for better accuracy
+  const defaultWatchTimeout = isIOS ? 15000 : 4000; // Longer timeout on iOS to get accurate GPS fix
+  const defaultFastMode = isIOS ? false : true; // Don't use fast mode on iOS - prioritize accuracy
+  
+  const { 
+    useWatchPosition = defaultUseWatchPosition, 
+    watchTimeout = defaultWatchTimeout, 
+    fastMode = defaultFastMode 
+  } = options || {};
 
   if (__DEV__) {
     // eslint-disable-next-line no-console
     console.log('🌍 Starting location detection...', {
+      platform: Platform.OS,
       useWatchPosition,
       watchTimeout: `${watchTimeout}ms`,
       fastMode,
@@ -122,11 +133,11 @@ export const getCurrentLocation = (
   }
 
   return new Promise((resolve, reject) => {
-    // Fast configuration - prioritize speed over perfect accuracy
+    // Platform-specific configuration for optimal accuracy
     const fastLocationOptions: Geolocation.GeoOptions = {
-      enableHighAccuracy: true, // Still use GPS but with faster timeout
-      timeout: 10000, // 10 seconds - reduced from 30 for faster response
-      maximumAge: 5000, // Accept cached locations up to 5 seconds old (faster)
+      enableHighAccuracy: true, // Use GPS for high accuracy
+      timeout: isIOS ? 20000 : 10000, // Longer timeout on iOS for GPS fix
+      maximumAge: isIOS ? 0 : 5000, // iOS: Force fresh GPS fix (0 = no cache), Android: Accept 5s cache
       accuracy: {
         android: 'high' as const,
         ios: 'best' as const,
@@ -135,12 +146,11 @@ export const getCurrentLocation = (
       showLocationDialog: true,
     };
 
-
     const watchOptions: Geolocation.GeoWatchOptions = {
       enableHighAccuracy: true,
-      distanceFilter: 0,
-      interval: 1000,
-      fastestInterval: 500,
+      distanceFilter: 0, // No distance filter - get all updates
+      interval: isIOS ? 2000 : 1000, // iOS: Check every 2s for better GPS fix, Android: 1s
+      fastestInterval: isIOS ? 1000 : 500, // iOS: Fastest 1s, Android: 500ms
       accuracy: {
         android: 'high' as const,
         ios: 'best' as const,
@@ -161,8 +171,12 @@ export const getCurrentLocation = (
         const elapsed = Date.now() - startTime;
         const accuracy = position.coords.accuracy || 0;
         
-        // Accept position if accuracy is reasonable (fast mode) or very good
-        const acceptableAccuracy = fastMode ? 100 : 50; // Accept up to 100m in fast mode
+        // Platform-specific accuracy requirements
+        // iOS: Stricter accuracy (20m) since we're using watchPosition by default
+        // Android: More lenient (100m in fast mode, 50m otherwise) since it's working well
+        const acceptableAccuracy = isIOS 
+          ? 20 // iOS: Require high accuracy (20m)
+          : (fastMode ? 100 : 50); // Android: 100m in fast mode, 50m otherwise
         
         if (__DEV__) {
           // eslint-disable-next-line no-console
@@ -244,6 +258,7 @@ const useWatchPositionForBetterAccuracy = (
   watchTimeout: number,
   initialPosition: Geolocation.GeoPosition | null
 ) => {
+  const isIOS = Platform.OS === 'ios';
   let watchId: number | null = null;
   let bestPosition: Geolocation.GeoPosition | null = initialPosition;
   const startTime = Date.now();
@@ -281,10 +296,12 @@ const useWatchPositionForBetterAccuracy = (
         }
       }
 
-      // Accept if accuracy is good enough (50m) or timeout reached
+      // Platform-specific accuracy requirements for watchPosition
+      // iOS: Require better accuracy (20m), Android: 50m is acceptable
+      const requiredAccuracy = isIOS ? 20 : 50;
       const elapsedTime = Date.now() - startTime;
       if (
-        (position.coords.accuracy && position.coords.accuracy <= 50) ||
+        (position.coords.accuracy && position.coords.accuracy <= requiredAccuracy) ||
         elapsedTime >= watchTimeout
       ) {
         if (watchId !== null) {
