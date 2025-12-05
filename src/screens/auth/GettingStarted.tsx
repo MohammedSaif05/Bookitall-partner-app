@@ -29,9 +29,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Illustration images
 const ILLUSTRATIONS = [
-  require('../../assets/webp/illustration_started_1.webp'),
-  require('../../assets/webp/illustration_started_2.webp'),
-  require('../../assets/webp/illustration_started_3.webp'),
+  require('../../assets/webp/illustration_1.webp'),
+  require('../../assets/webp/illustration_2.webp'),
+  require('../../assets/webp/illustration_3.webp'),
 ];
 
 // Onboarding content for each slide

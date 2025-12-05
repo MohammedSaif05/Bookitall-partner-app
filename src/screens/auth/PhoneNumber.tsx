@@ -26,7 +26,7 @@ import { authService, type CustomAxiosError } from '../../services/api';
 import { showError } from '../../utils/flashMessage';
 
 // Illustration image
-const ILLUSTRATION = require('../../assets/webp/illustration_phoneno.webp');
+const ILLUSTRATION = require('../../assets/webp/illustration_phone.webp');
 
 type PhoneNumberProps = AuthStackScreenProps<'PhoneNumber'>;
 

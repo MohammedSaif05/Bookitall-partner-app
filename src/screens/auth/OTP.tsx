@@ -27,7 +27,7 @@ import { showError } from '../../utils/flashMessage';
 import { userStorage } from '../../utils/storage';
 
 // Illustration image (temporary - same as PhoneNumber)
-const ILLUSTRATION = require('../../assets/webp/illustration_phoneno.webp');
+const ILLUSTRATION = require('../../assets/webp/illustration_otp.webp');
 
 type OTPProps = AuthStackScreenProps<'OTP'>;
 
