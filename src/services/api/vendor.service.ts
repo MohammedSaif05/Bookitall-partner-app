@@ -154,6 +154,7 @@ export interface VendorData {
   startTime?: string;
   isOnBoardCompleted: boolean;
   isBusinessVerified: boolean;
+  staff?: StaffMember[]; // Optional staff array
 }
 
 /**

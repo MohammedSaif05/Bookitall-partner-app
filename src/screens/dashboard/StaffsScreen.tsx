@@ -20,7 +20,7 @@ import type { RootStackScreenProps } from '../../navigation/types';
 import { useFocusEffect } from '@react-navigation/native';
 
 // Illustration image
-const ILLUSTRATION = require('../../assets/webp/illustration_1.webp');
+const ILLUSTRATION = require('../../assets/webp/staff_illustration.webp');
 
 type StaffsScreenProps = RootStackScreenProps<'Staffs'>;
 

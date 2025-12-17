@@ -59,9 +59,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
     fetchVendorData();
   }, []);
 
-  // Determine which cards to show based on businessType
+  // Determine which cards to show based on businessType and staff field presence
   const isIndividual = vendorData?.businessType === 'Individual';
-  const showTeamCard = !isIndividual; // Hide team card for Individual business type
+  const hasStaffField = vendorData?.staff !== undefined; // Check if staff field exists, regardless of items
+  const showTeamCard = !isIndividual && !hasStaffField; // Hide team card for Individual or if staff field exists
 
   // Format location text: "address, city"
   const locationText = vendorData
@@ -110,9 +111,9 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
 
       {/* Store completion progress */}
       <View style={styles.progressSection}>
-        <StoreCompletionProgress progress={0.25} />
+        <StoreCompletionProgress progress={hasStaffField ? 0.25 : 0} />
         
-        {/* Conditionally render team card only for Storefront/Franchise */}
+        {/* Conditionally render team card only for Storefront/Franchise and when staff field doesn't exist */}
         {showTeamCard && (
           <VerifyCompletionCard
             title="Add your team"
@@ -123,13 +124,13 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           />
         )}
         
-        {/* Services card - active for Individual, disabled for Storefront/Franchise */}
+        {/* Services card - active for Individual or when staff field exists, disabled otherwise */}
         <VerifyCompletionCard
           title="Add your services"
           description="Show what customers can book."
           icon={ServiceVerifyIcon}
           style={styles.cardSpacing}
-          disabled={!isIndividual}
+          disabled={!isIndividual && !hasStaffField}
         />
         
         <VerifyCompletionCard
