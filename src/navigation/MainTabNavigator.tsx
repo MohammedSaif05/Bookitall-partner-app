@@ -12,7 +12,7 @@ import type { MainTabParamList } from './types';
 import { colors } from '../theme/colors';
 import { hs, ms, vs } from '../theme/scaling';
 import { typography } from '../theme/fonts';
-import DashboardHome from '../screens/dashboard/DashboardHome';
+import DashboardStackNavigator from './DashboardStackNavigator';
 import BookingsScreen from '../screens/dashboard/BookingsScreen';
 import ScannerScreen from '../screens/dashboard/ScannerScreen';
 import ManageScreen from '../screens/dashboard/ManageScreen';
@@ -81,7 +81,7 @@ const MainTabNavigator: React.FC = () => {
     >
       <Tab.Screen
         name="Dashboard"
-        component={DashboardHome}
+        component={DashboardStackNavigator}
         options={{
           tabBarLabel: 'Dashboard',
           tabBarIcon: renderDashboardIcon,

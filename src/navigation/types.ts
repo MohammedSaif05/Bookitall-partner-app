@@ -9,11 +9,19 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 /**
+ * Dashboard Stack Param List
+ * Defines routes in the dashboard stack navigator
+ */
+export type DashboardStackParamList = {
+  DashboardHome: undefined;
+};
+
+/**
  * Main Tab Param List
  * Defines routes in the main bottom tab navigator
  */
 export type MainTabParamList = {
-  Dashboard: undefined;
+  Dashboard: NavigatorScreenParams<DashboardStackParamList>;
   Bookings: undefined;
   Scanner: undefined;
   Manage: undefined;
@@ -27,6 +35,8 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Main: NavigatorScreenParams<MainTabParamList>;
+  Staffs: undefined;
+  AddStaff: { staffName?: string; currentName?: string; isActive?: boolean } | undefined;
 };
 
 /**
@@ -60,6 +70,13 @@ export type RootStackScreenProps<T extends keyof RootStackParamList> =
  */
 export type AuthStackScreenProps<T extends keyof AuthStackParamList> =
   NativeStackScreenProps<AuthStackParamList, T>;
+
+/**
+ * Dashboard Stack Screen Props
+ * Helper type for screens in DashboardStack
+ */
+export type DashboardStackScreenProps<T extends keyof DashboardStackParamList> =
+  NativeStackScreenProps<DashboardStackParamList, T>;
 
 /**
  * Navigation Props

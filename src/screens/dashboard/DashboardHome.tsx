@@ -5,8 +5,8 @@
  * @format
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
@@ -18,8 +18,67 @@ import TeamVerifyIcon from '../../assets/svg/icons/team_verify.svg';
 import ServiceVerifyIcon from '../../assets/svg/icons/service_verify.svg';
 import BusinessVerifyIcon from '../../assets/svg/icons/business_verify.svg';
 import BankVerifyIcon from '../../assets/svg/icons/bank_verify.svg';
+import { vendorService, type VendorData } from '../../services/api/vendor.service';
+import { userStorage } from '../../utils/storage';
+import { showError } from '../../utils/flashMessage';
+import type { DashboardStackScreenProps } from '../../navigation/types';
 
-const DashboardHome: React.FC = () => {
+type DashboardHomeProps = DashboardStackScreenProps<'DashboardHome'>;
+
+const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
+  const [vendorData, setVendorData] = useState<VendorData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchVendorData = async () => {
+      try {
+        setLoading(true);
+        const userId = await userStorage.getUserId();
+        
+        if (!userId) {
+          showError('User ID not found. Please login again.');
+          setLoading(false);
+          return;
+        }
+
+        const response = await vendorService.getVendorByUserId(userId);
+        
+        if (response.success && response.data) {
+          setVendorData(response.data);
+        } else {
+          showError('Failed to load vendor data');
+        }
+      } catch (error) {
+        console.error('Error fetching vendor data:', error);
+        showError('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVendorData();
+  }, []);
+
+  // Determine which cards to show based on businessType
+  const isIndividual = vendorData?.businessType === 'Individual';
+  const showTeamCard = !isIndividual; // Hide team card for Individual business type
+
+  // Format location text: "address, city"
+  const locationText = vendorData
+    ? `${vendorData.address}, ${vendorData.city}`
+    : 'Loading...';
+
+  // Get business name from API or fallback
+  const businessName = vendorData?.businessName || 'Loading...';
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={colors.text.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header card */}
@@ -28,7 +87,7 @@ const DashboardHome: React.FC = () => {
         <View style={styles.headerTopRow}>
           <View style={styles.locationRow}>
             <LocationIcon width={hs(14)} height={hs(14)} />
-            <Text style={styles.locationText}>M.G Road, Hosur</Text>
+            <Text style={styles.locationText}>{locationText}</Text>
           </View>
 
           <View style={styles.notificationBadge}>
@@ -38,7 +97,7 @@ const DashboardHome: React.FC = () => {
 
         {/* Business name & welcome text */}
         <View style={styles.headerTextBlock}>
-          <Text style={styles.businessName}>Ghostline Studio</Text>
+          <Text style={styles.businessName}>{businessName}</Text>
           <Text style={styles.welcomeText}>Welcome to your dashboard!</Text>
         </View>
 
@@ -52,19 +111,27 @@ const DashboardHome: React.FC = () => {
       {/* Store completion progress */}
       <View style={styles.progressSection}>
         <StoreCompletionProgress progress={0.25} />
-        <VerifyCompletionCard
-          title="Add your team"
-          description="Assign staff and manage schedules."
-          icon={TeamVerifyIcon}
-          style={styles.cardSpacing}
-        />
+        
+        {/* Conditionally render team card only for Storefront/Franchise */}
+        {showTeamCard && (
+          <VerifyCompletionCard
+            title="Add your team"
+            description="Assign staff and manage schedules."
+            icon={TeamVerifyIcon}
+            style={styles.cardSpacing}
+            onPress={() => navigation.getParent()?.getParent()?.navigate('Staffs' as never)}
+          />
+        )}
+        
+        {/* Services card - active for Individual, disabled for Storefront/Franchise */}
         <VerifyCompletionCard
           title="Add your services"
           description="Show what customers can book."
           icon={ServiceVerifyIcon}
           style={styles.cardSpacing}
-          disabled={true}
+          disabled={!isIndividual}
         />
+        
         <VerifyCompletionCard
           title="Verify your business"
           description="Increase trust with customers."
@@ -72,6 +139,7 @@ const DashboardHome: React.FC = () => {
           style={styles.cardSpacing}
           disabled={true}
         />
+        
         <VerifyCompletionCard
           title="Add bank details"
           description="Receive payments seamlessly."
@@ -157,6 +225,10 @@ const styles = StyleSheet.create({
   },
   cardSpacing: {
     marginBottom: vs(12),
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -24,6 +24,7 @@ export type {
   BreakPeriod,
   DayTiming,
   VendorData,
+  StaffMember,
 } from './vendor.service';
 export * from './auth.service';
 

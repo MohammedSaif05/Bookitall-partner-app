@@ -11,6 +11,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList, AuthStackParamList } from './types';
 import AuthNavigator from './AuthNavigator';
 import MainTabNavigator from './MainTabNavigator';
+import StaffsScreen from '../screens/dashboard/StaffsScreen';
+import AddStaffScreen from '../screens/dashboard/AddStaffScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -40,6 +42,22 @@ const RootNavigator = React.forwardRef<NavigationContainerRef<RootStackParamList
             {() => <AuthNavigator initialRouteName={initialAuthRoute} />}
           </Stack.Screen>
           <Stack.Screen name="Main" component={MainTabNavigator} />
+          <Stack.Screen
+            name="Staffs"
+            component={StaffsScreen}
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
+            name="AddStaff"
+            component={AddStaffScreen}
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     );

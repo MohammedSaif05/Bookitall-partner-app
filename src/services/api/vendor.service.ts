@@ -102,6 +102,14 @@ export interface OperatingHoursDifferentRequest {
 export type OperatingHoursRequest = OperatingHoursSameRequest | OperatingHoursDifferentRequest;
 
 /**
+ * Staff Member
+ */
+export interface StaffMember {
+  name: string;
+  isActive: boolean;
+}
+
+/**
  * Vendor Data Response
  * Response structure for vendor data
  */
@@ -263,6 +271,102 @@ class VendorService {
       const response = await apiClient.patch<BusinessSetupResponseData>(
         `${API_ENDPOINTS.VENDOR.ONBOARDING}/${payload.userId}`,
         payload
+      );
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Get staff members
+   * @param userId - User ID
+   * @returns Promise with staff list response
+   */
+  async getStaff(userId: string): Promise<ApiResponse<StaffMember[]>> {
+    try {
+      const response = await apiClient.get<StaffMember[]>(
+        `${API_ENDPOINTS.VENDOR.ONBOARDING}/${userId}/staff`
+      );
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Add staff member
+   * @param userId - User ID
+   * @param staffName - Staff member name
+   * @returns Promise with update response
+   */
+  async addStaff(userId: string, staffName: string): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ONBOARDING}/${userId}/add-staff`,
+        {
+          staff: [
+            {
+              name: staffName.trim(),
+              isActive: true,
+            },
+          ],
+        }
+      );
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Delete staff member
+   * @param userId - User ID
+   * @param staffName - Staff member name to delete
+   * @returns Promise with delete response
+   */
+  async deleteStaff(userId: string, staffName: string): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      const response = await apiClient.delete<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ONBOARDING}/${userId}/staff`,
+        {
+          data: {
+            name: staffName.trim(),
+          },
+        }
+      );
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Update staff member
+   * @param userId - User ID
+   * @param currentName - Current staff member name
+   * @param newName - New staff member name
+   * @param isActive - Staff active status
+   * @returns Promise with update response
+   */
+  async updateStaff(
+    userId: string,
+    currentName: string,
+    newName: string,
+    isActive: boolean
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ONBOARDING}/${userId}/update-staff`,
+        {
+          currentName: currentName.trim(),
+          newName: newName.trim(),
+          isActive,
+        }
       );
       return response;
     } catch (error) {
