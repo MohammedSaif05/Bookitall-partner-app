@@ -9,12 +9,24 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 /**
+ * Main Tab Param List
+ * Defines routes in the main bottom tab navigator
+ */
+export type MainTabParamList = {
+  Dashboard: undefined;
+  Bookings: undefined;
+  Scanner: undefined;
+  Manage: undefined;
+  Profile: undefined;
+};
+
+/**
  * Root Navigator Param List
- * Defines all possible routes in the app
+ * Defines all possible navigators in the app
  */
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
-  // Add other navigators here (e.g., Main, Onboarding, etc.)
+  Main: NavigatorScreenParams<MainTabParamList>;
 };
 
 /**

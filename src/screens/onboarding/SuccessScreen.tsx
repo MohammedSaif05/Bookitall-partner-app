@@ -24,10 +24,10 @@ type SuccessScreenProps = AuthStackScreenProps<'SuccessScreen'>;
 /**
  * SuccessScreen - Onboarding Completion
  */
-const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation: _navigation }) => {
+const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation }) => {
   const handleGoToDashboard = () => {
-    // TODO: Navigate to dashboard
-    // _navigation.navigate('Dashboard');
+    // Navigate to the main dashboard tab
+    navigation.getParent()?.navigate('Main');
   };
 
   return (

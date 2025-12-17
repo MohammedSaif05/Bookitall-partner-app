@@ -14,7 +14,7 @@ import RNBootSplash from 'react-native-bootsplash';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import SplashScreen from './src/components/SplashScreen';
 import { RootNavigator } from './src/navigation';
-import type { RootStackParamList } from './src/navigation/types';
+import type { RootStackParamList, AuthStackParamList } from './src/navigation/types';
 import { userStorage } from './src/utils/storage';
 
 function App() {
@@ -95,11 +95,17 @@ interface AppContentProps {
 function AppContent({ shouldNavigateToSuccess }: AppContentProps) {
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
 
+  const initialRootRouteName: keyof RootStackParamList = shouldNavigateToSuccess ? 'Main' : 'Auth';
+  const initialAuthRoute: keyof AuthStackParamList | undefined = shouldNavigateToSuccess
+    ? undefined
+    : 'GettingStarted';
+
   return (
     <RootNavigator
       ref={navigationRef}
       onReady={() => {}}
-      initialAuthRoute={shouldNavigateToSuccess ? 'SuccessScreen' : 'GettingStarted'}
+      initialRouteName={initialRootRouteName}
+      initialAuthRoute={initialAuthRoute}
     />
   );
 }
