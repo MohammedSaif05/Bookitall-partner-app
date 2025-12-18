@@ -13,6 +13,8 @@ import AuthNavigator from './AuthNavigator';
 import MainTabNavigator from './MainTabNavigator';
 import StaffsScreen from '../screens/dashboard/StaffsScreen';
 import AddStaffScreen from '../screens/dashboard/AddStaffScreen';
+import ServicesScreen from '../screens/dashboard/ServicesScreen';
+import AddServiceScreen from '../screens/dashboard/AddServiceScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -53,6 +55,22 @@ const RootNavigator = React.forwardRef<NavigationContainerRef<RootStackParamList
           <Stack.Screen
             name="AddStaff"
             component={AddStaffScreen}
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
+            name="Services"
+            component={ServicesScreen}
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
+            name="AddService"
+            component={AddServiceScreen}
             options={{
               animation: 'slide_from_right',
               gestureEnabled: true,

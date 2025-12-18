@@ -375,6 +375,81 @@ class VendorService {
       throw error;
     }
   }
+
+  /**
+   * Add service
+   * @param userId - User ID
+   * @param serviceData - Service data object
+   * @param imageUri - Image URI (optional)
+   * @returns Promise with add service response
+   */
+  async addService(
+    userId: string,
+    serviceData: {
+      serviceName: string;
+      serviceDuration: number;
+      serviceCost: number;
+      gender: string;
+      description: string;
+      category: string;
+      bufferTime: number;
+      assignedStaff: string[];
+      maximumNo: number;
+    },
+    imageUri?: string | null
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate serviceData is not null/undefined
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Use React Native's FormData
+      const formData = new FormData();
+
+      // Form Field 1: userId
+      formData.append('userId', userId);
+
+      // Form Field 2: service (JSON string) - NestJS expects this as a JSON string
+      // Stringify the service object so NestJS validation pipe can parse it
+      const serviceJsonString = JSON.stringify(serviceData);
+      
+      // Ensure the stringified JSON is valid and not "null" or "undefined"
+      if (!serviceJsonString || serviceJsonString === 'null' || serviceJsonString === 'undefined') {
+        throw new Error('Invalid service data: cannot stringify to valid JSON');
+      }
+      
+      formData.append('service', serviceJsonString);
+
+      // Form Field 3: serviceImage (if provided)
+      if (imageUri) {
+        const imageFile = {
+          uri: imageUri,
+          type: 'image/jpeg',
+          name: 'service-image.jpg',
+        };
+        formData.append('serviceImage', imageFile as any);
+      }
+
+      // Log FormData contents for debugging
+      console.log('FormData being sent:');
+      console.log('userId:', userId);
+      console.log('service (JSON string):', serviceJsonString);
+      console.log('service (parsed):', JSON.parse(serviceJsonString));
+      console.log('serviceImage:', imageUri ? 'Present' : 'Not provided');
+
+      // Make PATCH request with FormData
+      // The API client interceptor will automatically handle Content-Type for FormData
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/add-service`,
+        formData
+      );
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

@@ -100,6 +100,11 @@ class ApiClient {
           }
         }
 
+        // Handle FormData: Remove Content-Type header to let axios set it automatically with boundary
+        if (config.data instanceof FormData) {
+          delete config.headers['Content-Type'];
+        }
+
         // Log request in development
         if (__DEV__) {
           // eslint-disable-next-line no-console

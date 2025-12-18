@@ -131,6 +131,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           icon={ServiceVerifyIcon}
           style={styles.cardSpacing}
           disabled={!isIndividual && !hasStaffField}
+          onPress={() =>
+            navigation
+              .getParent()
+              ?.getParent()
+              ?.navigate('Services' as never)
+          }
         />
         
         <VerifyCompletionCard

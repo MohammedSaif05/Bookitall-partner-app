@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
   VENDOR: {
     ONBOARDING: '/api/vendor', // For PATCH requests (onboarding updates)
     GET_VENDOR: '/api/vendors', // For GET requests (fetch vendor data)
+    ADD_SERVICE: '/api/vendor', // For PATCH requests (add service)
   },
 } as const;
 

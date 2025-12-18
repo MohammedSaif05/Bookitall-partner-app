@@ -37,6 +37,8 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>;
   Staffs: undefined;
   AddStaff: { staffName?: string; currentName?: string; isActive?: boolean } | undefined;
+  Services: undefined;
+  AddService: undefined;
 };
 
 /**

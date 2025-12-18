@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Switch, ActivityIndicator, TouchableWithoutFeedback, Keyboard, Modal, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
@@ -69,19 +69,21 @@ const StaffsScreen: React.FC<StaffsScreenProps> = ({ navigation }) => {
   );
 
   // Handle Android hardware back button to navigate to DashboardHome
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      navigation.navigate('Main', {
-        screen: 'Dashboard',
-        params: {
-          screen: 'DashboardHome',
-        },
+  useFocusEffect(
+    useCallback(() => {
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+        navigation.navigate('Main', {
+          screen: 'Dashboard',
+          params: {
+            screen: 'DashboardHome',
+          },
+        });
+        return true; // Prevent default back behavior
       });
-      return true; // Prevent default back behavior
-    });
 
-    return () => backHandler.remove();
-  }, [navigation]);
+      return () => backHandler.remove();
+    }, [navigation])
+  );
 
   const handleToggleActive = async (index: number) => {
     const staff = staffList[index];
