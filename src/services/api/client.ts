@@ -100,9 +100,41 @@ class ApiClient {
           }
         }
 
-        // Handle FormData: Remove Content-Type header to let axios set it automatically with boundary
-        if (config.data instanceof FormData) {
-          delete config.headers['Content-Type'];
+        // Handle FormData: Remove Content-Type header completely so axios can set it with boundary
+        // Check for FormData using multiple methods for React Native compatibility
+        const isFormData = 
+          config.data instanceof FormData ||
+          (config.data && typeof config.data === 'object' && '_parts' in config.data);
+        
+        if (isFormData) {
+          // Completely remove Content-Type from all header locations
+          // This is critical for React Native - axios must set it automatically
+          if (config.headers) {
+            // Remove from direct headers
+            delete config.headers['Content-Type'];
+            delete config.headers['content-type'];
+            
+            // Remove from common headers
+            if (config.headers.common) {
+              delete config.headers.common['Content-Type'];
+              delete config.headers.common['content-type'];
+            }
+            
+            // Remove from method-specific headers (patch, post, etc.)
+            const method = config.method?.toLowerCase();
+            if (method && config.headers[method]) {
+              delete config.headers[method]['Content-Type'];
+              delete config.headers[method]['content-type'];
+            }
+            
+            // Set to undefined as fallback (some axios versions need this)
+            config.headers['Content-Type'] = undefined as any;
+          }
+          
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[API] FormData detected - Content-Type removed. Axios will set multipart/form-data.');
+          }
         }
 
         // Log request in development

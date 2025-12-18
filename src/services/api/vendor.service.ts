@@ -423,12 +423,18 @@ class VendorService {
 
       // Form Field 3: serviceImage (if provided)
       if (imageUri) {
+        // React Native FormData requires uri, type, and name
+        // Ensure the URI is properly formatted
         const imageFile = {
           uri: imageUri,
-          type: 'image/jpeg',
-          name: 'service-image.jpg',
+          type: 'image/jpeg', // MIME type
+          name: 'service-image.jpg', // File name
         };
         formData.append('serviceImage', imageFile as any);
+        
+        if (__DEV__) {
+          console.log('[AddService] Image file object:', imageFile);
+        }
       }
 
       // Log FormData contents for debugging
@@ -439,13 +445,34 @@ class VendorService {
       console.log('serviceImage:', imageUri ? 'Present' : 'Not provided');
 
       // Make PATCH request with FormData
-      // The API client interceptor will automatically handle Content-Type for FormData
-      const response = await apiClient.patch<BusinessSetupResponseData>(
-        `${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/add-service`,
+      // Use axios instance directly for FormData to ensure proper handling
+      const axiosInstance = apiClient.getInstance();
+      const url = `${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/add-service`;
+      
+      if (__DEV__) {
+        console.log('[AddService] Making request to:', url);
+        console.log('[AddService] FormData check:', formData instanceof FormData);
+      }
+      
+      const response = await axiosInstance.patch<ApiResponse<BusinessSetupResponseData>>(
+        url,
         formData
       );
-      return response;
+      
+      return response.data;
     } catch (error) {
+      // Log error details for debugging
+      if (__DEV__) {
+        console.error('[AddService] Error details:', error);
+        const axiosError = error as any;
+        if (axiosError.response) {
+          console.error('[AddService] Response error:', axiosError.response.data);
+        } else if (axiosError.request) {
+          console.error('[AddService] Request error:', axiosError.request);
+        } else {
+          console.error('[AddService] Error message:', axiosError.message);
+        }
+      }
       // Error is already handled by interceptor
       throw error;
     }
