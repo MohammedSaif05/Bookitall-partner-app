@@ -154,7 +154,7 @@ class ApiClient {
       (error: AxiosError<ApiErrorResponse>) => {
         // Handle request error
         if (__DEV__) {
-          // eslint-disable-next-line no-console
+         
           console.error('[API Request Error]', error);
         }
         return Promise.reject(this.handleError(error));
@@ -199,7 +199,7 @@ class ApiClient {
         if (error.response?.status === 403) {
           // Handle forbidden access
           if (__DEV__) {
-            // eslint-disable-next-line no-console
+            
             console.warn('[API] Forbidden access');
           }
         }
@@ -208,7 +208,7 @@ class ApiClient {
         if (error.response?.status && error.response.status >= 500) {
           // Log server errors for monitoring
           if (__DEV__) {
-            // eslint-disable-next-line no-console
+            
             console.error('[API] Server Error', error.response.data);
           }
         }
@@ -270,7 +270,7 @@ class ApiClient {
     // - Show a toast notification
     // - Clear user data from storage
     if (__DEV__) {
-      // eslint-disable-next-line no-console
+      
       console.warn('[API] Unauthorized - Token cleared');
     }
   }

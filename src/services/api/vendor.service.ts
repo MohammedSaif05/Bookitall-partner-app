@@ -436,9 +436,9 @@ class VendorService {
         service: serviceData,
       };
 
-      if (__DEV__) {
-        console.log('[AddService] Payload being sent:', JSON.stringify(payload, null, 2));
-      }
+      // if (__DEV__) {
+      //   console.log('[AddService] Payload being sent:', JSON.stringify(payload, null, 2));
+      // }
 
       // Make PATCH request with JSON payload
       const response = await apiClient.patch<BusinessSetupResponseData>(
@@ -491,17 +491,17 @@ class VendorService {
       };
       formData.append('serviceImage', imageFile as any);
 
-      if (__DEV__) {
-        console.log('[UploadServiceImage] Uploading image for serviceId:', serviceId);
-        console.log('[UploadServiceImage] FormData entries:');
-        // Log FormData structure (note: FormData doesn't support direct inspection in RN)
-        console.log('[UploadServiceImage] serviceId:', serviceId);
-        console.log('[UploadServiceImage] imageFile:', {
-          uri: imageUri,
-          type: 'image/jpeg',
-          name: 'service-image.jpg',
-        });
-      }
+      // if (__DEV__) {
+      //   console.log('[UploadServiceImage] Uploading image for serviceId:', serviceId);
+      //   console.log('[UploadServiceImage] FormData entries:');
+      //   // Log FormData structure (note: FormData doesn't support direct inspection in RN)
+      //   console.log('[UploadServiceImage] serviceId:', serviceId);
+      //   console.log('[UploadServiceImage] imageFile:', {
+      //     uri: imageUri,
+      //     type: 'image/jpeg',
+      //     name: 'service-image.jpg',
+      //   });
+      // }
 
       // Make PATCH request with FormData
       // Use fetch API directly for FormData as it's more reliable in React Native
@@ -510,11 +510,11 @@ class VendorService {
       // Get auth token from storage
       const token = await AsyncStorage.getItem('auth_token');
       
-      if (__DEV__) {
-        console.log('[UploadServiceImage] Request URL:', url);
-        console.log('[UploadServiceImage] ServiceId:', serviceId);
-        console.log('[UploadServiceImage] Image URI:', imageUri);
-      }
+      // if (__DEV__) {
+      //   console.log('[UploadServiceImage] Request URL:', url);
+      //   console.log('[UploadServiceImage] ServiceId:', serviceId);
+      //   console.log('[UploadServiceImage] Image URI:', imageUri);
+      // }
       
       // Use fetch API for FormData upload (more reliable in React Native)
       const response = await fetch(url, {
@@ -558,9 +558,9 @@ class VendorService {
 
       const responseData: ApiResponse<BusinessSetupResponseData> = await response.json();
       
-      if (__DEV__) {
-        console.log('[UploadServiceImage] Success response:', JSON.stringify(responseData, null, 2));
-      }
+      // if (__DEV__) {
+      //   console.log('[UploadServiceImage] Success response:', JSON.stringify(responseData, null, 2));
+      // }
       
       return responseData;
     } catch (error) {
@@ -680,11 +680,11 @@ class VendorService {
         payload.isActive = serviceData.isActive;
       }
 
-      if (__DEV__) {
-        console.log('[UpdateService] UserId:', userId);
-        console.log('[UpdateService] ServiceId:', serviceId);
-        console.log('[UpdateService] Payload being sent:', JSON.stringify(payload, null, 2));
-      }
+      // if (__DEV__) {
+      //   console.log('[UpdateService] UserId:', userId);
+      //   console.log('[UpdateService] ServiceId:', serviceId);
+      //   console.log('[UpdateService] Payload being sent:', JSON.stringify(payload, null, 2));
+      // }
 
       // Make PATCH request with JSON payload
       const response = await apiClient.patch<BusinessSetupResponseData>(
@@ -727,9 +727,9 @@ class VendorService {
         isActive: isActive,
       };
 
-      if (__DEV__) {
-        console.log('[ToggleServiceStatus] Payload being sent:', JSON.stringify(payload, null, 2));
-      }
+      // if (__DEV__) {
+      //   console.log('[ToggleServiceStatus] Payload being sent:', JSON.stringify(payload, null, 2));
+      // }
 
       // Make PATCH request with JSON payload
       const response = await apiClient.patch<BusinessSetupResponseData>(
@@ -781,9 +781,9 @@ class VendorService {
       };
       formData.append('serviceImage', imageFile as any);
 
-      if (__DEV__) {
-        console.log('[UpdateServiceImage] Uploading image for serviceId:', serviceId);
-      }
+      // if (__DEV__) {
+      //   console.log('[UpdateServiceImage] Uploading image for serviceId:', serviceId);
+      // }
 
       // Make PATCH request with FormData
       // Use fetch API directly for FormData as it's more reliable in React Native
@@ -792,11 +792,11 @@ class VendorService {
       // Get auth token from storage
       const token = await AsyncStorage.getItem('auth_token');
       
-      if (__DEV__) {
-        console.log('[UpdateServiceImage] Request URL:', url);
-        console.log('[UpdateServiceImage] ServiceId:', serviceId);
-        console.log('[UpdateServiceImage] Image URI:', imageUri);
-      }
+      // if (__DEV__) {
+      //   console.log('[UpdateServiceImage] Request URL:', url);
+      //   console.log('[UpdateServiceImage] ServiceId:', serviceId);
+      //   console.log('[UpdateServiceImage] Image URI:', imageUri);
+      // }
       
       // Use fetch API for FormData upload (more reliable in React Native)
       const response = await fetch(url, {
@@ -840,9 +840,9 @@ class VendorService {
 
       const responseData: ApiResponse<BusinessSetupResponseData> = await response.json();
       
-      if (__DEV__) {
-        console.log('[UpdateServiceImage] Success response:', JSON.stringify(responseData, null, 2));
-      }
+      // if (__DEV__) {
+      //   console.log('[UpdateServiceImage] Success response:', JSON.stringify(responseData, null, 2));
+      // }
       
       return responseData;
     } catch (error) {

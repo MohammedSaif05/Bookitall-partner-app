@@ -273,12 +273,12 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         isActive: isActive,
       };
 
-      // Log request data for debugging
-      console.log('Service Data being sent:', JSON.stringify(serviceData, null, 2));
-      console.log('User ID:', userId);
-      console.log('Edit Mode:', isEditMode);
-      console.log('Service ID:', serviceId);
-      console.log('Edit Service Object:', JSON.stringify(editService, null, 2));
+      // // Log request data for debugging
+      // console.log('Service Data being sent:', JSON.stringify(serviceData, null, 2));
+      // console.log('User ID:', userId);
+      // console.log('Edit Mode:', isEditMode);
+      // console.log('Service ID:', serviceId);
+      // console.log('Edit Service Object:', JSON.stringify(editService, null, 2));
 
       if (isEditMode) {
         // Validate serviceId exists
@@ -289,18 +289,18 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
           return;
         }
 
-        console.log('Calling updateService with:', {
-          userId,
-          serviceId,
-          serviceDataKeys: Object.keys(serviceData),
-        });
+        // console.log('Calling updateService with:', {
+        //   userId,
+        //   serviceId,
+        //   serviceDataKeys: Object.keys(serviceData),
+        // });
 
         // EDIT MODE: Update existing service
         // Step 1: Update service data (JSON)
         const response = await vendorService.updateService(userId, serviceId, serviceData);
 
         // Log response for debugging
-        console.log('Update Service API Response:', JSON.stringify(response, null, 2));
+        // console.log('Update Service API Response:', JSON.stringify(response, null, 2));
 
         if (!response.success) {
           showError('Failed to update service. Please try again.');
@@ -339,7 +339,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         const response = await vendorService.addService(userId, serviceData);
 
         // Log response for debugging
-        console.log('Add Service API Response:', JSON.stringify(response, null, 2));
+        // console.log('Add Service API Response:', JSON.stringify(response, null, 2));
 
         if (!response.success) {
           showError('Failed to add service. Please try again.');
@@ -369,7 +369,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
               // Backend needs time to fully process and save the service before image upload
               await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
               
-              console.log('Uploading image for serviceId:', newServiceId);
+              // console.log('Uploading image for serviceId:', newServiceId);
               const imageResponse = await vendorService.uploadServiceImage(
                 userId,
                 newServiceId,
