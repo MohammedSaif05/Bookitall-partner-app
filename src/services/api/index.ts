@@ -25,6 +25,8 @@ export type {
   DayTiming,
   VendorData,
   StaffMember,
+  Service,
+  ServicesResponseData,
 } from './vendor.service';
 export * from './auth.service';
 

@@ -5,9 +5,10 @@
  * @format
  */
 
-import { API_ENDPOINTS } from '../../utils/constants';
+import { API_ENDPOINTS, API_CONFIG } from '../../utils/constants';
 import apiClient from './client';
 import type { ApiResponse } from '../../types/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Business Setup Request Payload
@@ -107,6 +108,32 @@ export type OperatingHoursRequest = OperatingHoursSameRequest | OperatingHoursDi
 export interface StaffMember {
   name: string;
   isActive: boolean;
+}
+
+/**
+ * Service
+ */
+export interface Service {
+  serviceId: string;
+  serviceName: string;
+  serviceDuration: number;
+  serviceCost: number;
+  gender: string;
+  description: string;
+  category: string;
+  bufferTime: number;
+  assignedStaff: string[];
+  maximumNo: number;
+  serviceImage?: string; // Optional service image URL
+}
+
+/**
+ * Services Response Data
+ */
+export interface ServicesResponseData {
+  userId: string;
+  businessName: string;
+  services: Service[];
 }
 
 /**
@@ -377,10 +404,9 @@ class VendorService {
   }
 
   /**
-   * Add service
+   * Add service (JSON)
    * @param userId - User ID
    * @param serviceData - Service data object
-   * @param imageUri - Image URI (optional)
    * @returns Promise with add service response
    */
   async addService(
@@ -395,8 +421,7 @@ class VendorService {
       bufferTime: number;
       assignedStaff: string[];
       maximumNo: number;
-    },
-    imageUri?: string | null
+    }
   ): Promise<ApiResponse<BusinessSetupResponseData>> {
     try {
       // Validate serviceData is not null/undefined
@@ -404,75 +429,156 @@ class VendorService {
         throw new Error('Service data is required');
       }
 
-      // Use React Native's FormData
+      // Prepare payload with service nested inside
+      const payload = {
+        service: serviceData,
+      };
+
+      if (__DEV__) {
+        console.log('[AddService] Payload being sent:', JSON.stringify(payload, null, 2));
+      }
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/add-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Upload service image
+   * @param userId - User ID
+   * @param serviceId - Service ID from add-service-json response
+   * @param imageUri - Image URI
+   * @returns Promise with upload response
+   */
+  async uploadServiceImage(
+    userId: string,
+    serviceId: string,
+    imageUri: string
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+      if (!imageUri) {
+        throw new Error('Image URI is required');
+      }
+
+      // Create FormData for image upload
+      // Backend expects exactly: serviceId (text) and serviceImage (file)
+      // userId is already in the URL path, so don't include it in FormData
       const formData = new FormData();
-
-      // Form Field 1: userId
-      formData.append('userId', userId);
-
-      // Form Field 2: service (JSON string) - NestJS expects this as a JSON string
-      // Stringify the service object so NestJS validation pipe can parse it
-      const serviceJsonString = JSON.stringify(serviceData);
       
-      // Ensure the stringified JSON is valid and not "null" or "undefined"
-      if (!serviceJsonString || serviceJsonString === 'null' || serviceJsonString === 'undefined') {
-        throw new Error('Invalid service data: cannot stringify to valid JSON');
-      }
-      
-      formData.append('service', serviceJsonString);
+      // Append serviceId as string (required by backend)
+      formData.append('serviceId', serviceId);
 
-      // Form Field 3: serviceImage (if provided)
-      if (imageUri) {
-        // React Native FormData requires uri, type, and name
-        // Ensure the URI is properly formatted
-        const imageFile = {
+      // Append image file (required by backend)
+      // React Native FormData requires uri, type, and name
+      const imageFile = {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'service-image.jpg',
+      };
+      formData.append('serviceImage', imageFile as any);
+
+      if (__DEV__) {
+        console.log('[UploadServiceImage] Uploading image for serviceId:', serviceId);
+        console.log('[UploadServiceImage] FormData entries:');
+        // Log FormData structure (note: FormData doesn't support direct inspection in RN)
+        console.log('[UploadServiceImage] serviceId:', serviceId);
+        console.log('[UploadServiceImage] imageFile:', {
           uri: imageUri,
-          type: 'image/jpeg', // MIME type
-          name: 'service-image.jpg', // File name
-        };
-        formData.append('serviceImage', imageFile as any);
-        
-        if (__DEV__) {
-          console.log('[AddService] Image file object:', imageFile);
-        }
+          type: 'image/jpeg',
+          name: 'service-image.jpg',
+        });
       }
-
-      // Log FormData contents for debugging
-      console.log('FormData being sent:');
-      console.log('userId:', userId);
-      console.log('service (JSON string):', serviceJsonString);
-      console.log('service (parsed):', JSON.parse(serviceJsonString));
-      console.log('serviceImage:', imageUri ? 'Present' : 'Not provided');
 
       // Make PATCH request with FormData
-      // Use axios instance directly for FormData to ensure proper handling
-      const axiosInstance = apiClient.getInstance();
-      const url = `${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/add-service`;
+      // Use fetch API directly for FormData as it's more reliable in React Native
+      const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/add-service`;
+      
+      // Get auth token from storage
+      const token = await AsyncStorage.getItem('auth_token');
       
       if (__DEV__) {
-        console.log('[AddService] Making request to:', url);
-        console.log('[AddService] FormData check:', formData instanceof FormData);
+        console.log('[UploadServiceImage] Request URL:', url);
+        console.log('[UploadServiceImage] ServiceId:', serviceId);
+        console.log('[UploadServiceImage] Image URI:', imageUri);
       }
       
-      const response = await axiosInstance.patch<ApiResponse<BusinessSetupResponseData>>(
-        url,
-        formData
-      );
-      
-      return response.data;
-    } catch (error) {
-      // Log error details for debugging
-      if (__DEV__) {
-        console.error('[AddService] Error details:', error);
-        const axiosError = error as any;
-        if (axiosError.response) {
-          console.error('[AddService] Response error:', axiosError.response.data);
-        } else if (axiosError.request) {
-          console.error('[AddService] Request error:', axiosError.request);
-        } else {
-          console.error('[AddService] Error message:', axiosError.message);
+      // Use fetch API for FormData upload (more reliable in React Native)
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+          Accept: 'application/json',
+          // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorData: any;
+        try {
+          const text = await response.text();
+          errorData = text ? JSON.parse(text) : { message: 'Unknown error' };
+        } catch {
+          errorData = { 
+            success: false,
+            message: `Upload failed with status ${response.status}` 
+          };
         }
+        
+        if (__DEV__) {
+          console.error('[UploadServiceImage] Full error response:', JSON.stringify(errorData, null, 2));
+          console.error('[UploadServiceImage] Response status:', response.status);
+          console.error('[UploadServiceImage] ServiceId sent:', serviceId);
+          console.error('[UploadServiceImage] UserId sent:', userId);
+        }
+        
+        // Extract error message from various possible formats
+        const errorMessage = 
+          errorData.message || 
+          errorData.error?.message || 
+          errorData.error ||
+          `Upload failed with status ${response.status}`;
+        
+        throw new Error(`Failed to add service image: ${errorMessage}`);
       }
+
+      const responseData: ApiResponse<BusinessSetupResponseData> = await response.json();
+      
+      if (__DEV__) {
+        console.log('[UploadServiceImage] Success response:', JSON.stringify(responseData, null, 2));
+      }
+      
+      return responseData;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Get services for a vendor
+   * @param userId - User ID
+   * @returns Promise with services response
+   */
+  async getServices(userId: string): Promise<ApiResponse<ServicesResponseData>> {
+    try {
+      const response = await apiClient.get<ServicesResponseData>(
+        `${API_ENDPOINTS.VENDOR.GET_SERVICES}/${userId}/services`
+      );
+      return response;
+    } catch (error) {
       // Error is already handled by interceptor
       throw error;
     }

@@ -238,21 +238,69 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
 
       // Log request data for debugging
       console.log('Service Data being sent:', JSON.stringify(serviceData, null, 2));
-      console.log('Image URI:', primaryImage);
       console.log('User ID:', userId);
 
-      // Call API
-      const response = await vendorService.addService(userId, serviceData, primaryImage);
+      // Step 1: Call API to create service (JSON)
+      const response = await vendorService.addService(userId, serviceData);
 
       // Log response for debugging
       console.log('Add Service API Response:', JSON.stringify(response, null, 2));
 
-      if (response.success) {
-        showSuccess('Service added successfully!');
-        navigation.navigate('Services');
-      } else {
+      if (!response.success) {
         showError('Failed to add service. Please try again.');
+        return;
       }
+
+      // Step 2: Upload image if provided
+      if (primaryImage && response.data) {
+        // Extract serviceId from response
+        // Response structure: { services: [{ serviceId: "...", ... }] }
+        const responseData = response.data as any;
+        let serviceId: string | undefined;
+        
+        // Check if services array exists and get the LAST service's serviceId (newly created one)
+        if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+          // Get the last service in the array (the newly created one)
+          const lastService = responseData.services[responseData.services.length - 1];
+          serviceId = lastService.serviceId;
+        } else if (responseData.serviceId) {
+          // Fallback: check if serviceId is directly in response.data
+          serviceId = responseData.serviceId;
+        }
+        
+        if (serviceId) {
+          try {
+            // Delay to ensure service is fully saved and indexed on backend
+            // Backend needs time to fully process and save the service before image upload
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+            
+            console.log('Uploading image for serviceId:', serviceId);
+            const imageResponse = await vendorService.uploadServiceImage(
+              userId,
+              serviceId,
+              primaryImage
+            );
+
+            if (imageResponse.success) {
+              console.log('Image uploaded successfully');
+            } else {
+              console.warn('Image upload failed, but service was created');
+              // Don't show error - service was created successfully
+            }
+          } catch (imageError) {
+            console.error('Image upload error:', imageError);
+            // Don't show error - service was created successfully
+            // Image can be uploaded later if needed
+          }
+        } else {
+          console.warn('ServiceId not found in response, skipping image upload');
+          console.log('Response data structure:', JSON.stringify(responseData, null, 2));
+        }
+      }
+
+      // Show success message
+      showSuccess('Service added successfully!');
+      navigation.navigate('Services');
     } catch (error) {
       const axiosError = error as CustomAxiosError;
       const errorMessage =
