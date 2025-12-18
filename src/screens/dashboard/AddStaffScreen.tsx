@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
@@ -153,6 +153,23 @@ const AddStaffScreen: React.FC<AddStaffScreenProps> = ({ navigation, route }) =>
             />
           </View>
         </View>
+
+        {/* Loading Overlay */}
+        <Modal
+          visible={loading}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {}} // Prevent closing during save
+        >
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingContent}>
+              <ActivityIndicator size="large" color={colors.text.primary} />
+              <Text style={styles.loadingText}>
+                {isEditMode ? 'Updating staff member...' : 'Saving staff member...'}
+              </Text>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -245,6 +262,25 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContent: {
+    backgroundColor: colors.background.white,
+    borderRadius: ms(12),
+    padding: vs(24),
+    alignItems: 'center',
+    minWidth: hs(120),
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.text.primary,
+    marginTop: vs(16),
+    textAlign: 'center',
   },
 });
 

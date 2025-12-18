@@ -39,29 +39,65 @@ import type { CustomAxiosError } from '../../types/api';
 
 type AddServiceScreenProps = RootStackScreenProps<'AddService'>;
 
-const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
+const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }) => {
+  // Check if we're in edit mode
+  const editService = route.params?.service;
+  const isEditMode = !!editService;
+  const serviceId = editService?.serviceId;
+
   const [step, setStep] = useState<0 | 1 | 2>(0);
-  const [serviceName, setServiceName] = useState('');
-  const [category, setCategory] = useState<string | undefined>(undefined);
-  const [description, setDescription] = useState('');
+  const [serviceName, setServiceName] = useState(editService?.serviceName || '');
+  const [category, setCategory] = useState<string | undefined>(editService?.category || undefined);
+  const [description, setDescription] = useState(editService?.description || '');
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
-  const [price, setPrice] = useState('');
-  const [selectedDuration, setSelectedDuration] = useState<string>('');
-  const [selectedBuffer, setSelectedBuffer] = useState<string>('');
-  const [customDuration, setCustomDuration] = useState<string>('');
-  const [customBuffer, setCustomBuffer] = useState<string>('');
+  const [price, setPrice] = useState(editService?.serviceCost.toString() || '');
+  
+  // Handle duration - check if it's in predefined list, otherwise use Custom
+  const predefinedDurations = ['10', '15', '30', '45', '60'];
+  const initialDuration = editService?.serviceDuration ? editService.serviceDuration.toString() : '';
+  const isCustomDuration = initialDuration && !predefinedDurations.includes(initialDuration);
+  const [selectedDuration, setSelectedDuration] = useState<string>(
+    isCustomDuration ? 'Custom' : initialDuration
+  );
+  const [customDuration, setCustomDuration] = useState<string>(
+    isCustomDuration ? initialDuration : ''
+  );
+  
+  // Handle buffer time - check if it's in predefined list, otherwise use Custom
+  const predefinedBuffers = ['0', '5', '10', '15', '30'];
+  const initialBuffer = editService?.bufferTime ? editService.bufferTime.toString() : '';
+  const isCustomBuffer = initialBuffer && !predefinedBuffers.includes(initialBuffer);
+  const [selectedBuffer, setSelectedBuffer] = useState<string>(
+    isCustomBuffer ? 'Custom' : initialBuffer
+  );
+  const [customBuffer, setCustomBuffer] = useState<string>(
+    isCustomBuffer ? initialBuffer : ''
+  );
   const [assignAllStaff, setAssignAllStaff] = useState(false);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
-  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<string[]>(editService?.assignedStaff || []);
   const [isStaffModalVisible, setIsStaffModalVisible] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(false);
   // Step 2 - Capacity
-  const [maxCustomers, setMaxCustomers] = useState<string>('1');
-  const [applicableTo, setApplicableTo] = useState<string>('Both');
+  const [maxCustomers, setMaxCustomers] = useState<string>(
+    editService?.maximumNo ? editService.maximumNo.toString() : '1'
+  );
+  // Map gender to applicableTo
+  const genderToApplicableTo: Record<string, string> = {
+    both: 'Both',
+    male: 'Male',
+    female: 'Female',
+  };
+  const [applicableTo, setApplicableTo] = useState<string>(
+    editService?.gender ? genderToApplicableTo[editService.gender] || 'Both' : 'Both'
+  );
   const [isMaxCustomersModalVisible, setIsMaxCustomersModalVisible] = useState(false);
   const [isApplicableToModalVisible, setIsApplicableToModalVisible] = useState(false);
   // Step 2 - Images
-  const [primaryImage, setPrimaryImage] = useState<string | null>(null);
+  const [primaryImage, setPrimaryImage] = useState<string | null>(editService?.serviceImage || null);
+  const originalImageUri = editService?.serviceImage || null;
+  // Service active status
+  const [isActive] = useState<boolean>(editService?.isActive ?? true);
   // const [galleryImages, setGalleryImages] = useState<string[]>([]); // Will be used for gallery images
   const [savingService, setSavingService] = useState(false);
 
@@ -234,73 +270,133 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
         bufferTime,
         assignedStaff: assignedStaffNames,
         maximumNo: parseInt(maxCustomers, 10),
+        isActive: isActive,
       };
 
       // Log request data for debugging
       console.log('Service Data being sent:', JSON.stringify(serviceData, null, 2));
       console.log('User ID:', userId);
+      console.log('Edit Mode:', isEditMode);
+      console.log('Service ID:', serviceId);
+      console.log('Edit Service Object:', JSON.stringify(editService, null, 2));
 
-      // Step 1: Call API to create service (JSON)
-      const response = await vendorService.addService(userId, serviceData);
-
-      // Log response for debugging
-      console.log('Add Service API Response:', JSON.stringify(response, null, 2));
-
-      if (!response.success) {
-        showError('Failed to add service. Please try again.');
-        return;
-      }
-
-      // Step 2: Upload image if provided
-      if (primaryImage && response.data) {
-        // Extract serviceId from response
-        // Response structure: { services: [{ serviceId: "...", ... }] }
-        const responseData = response.data as any;
-        let serviceId: string | undefined;
-        
-        // Check if services array exists and get the LAST service's serviceId (newly created one)
-        if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
-          // Get the last service in the array (the newly created one)
-          const lastService = responseData.services[responseData.services.length - 1];
-          serviceId = lastService.serviceId;
-        } else if (responseData.serviceId) {
-          // Fallback: check if serviceId is directly in response.data
-          serviceId = responseData.serviceId;
+      if (isEditMode) {
+        // Validate serviceId exists
+        if (!serviceId || serviceId.trim() === '') {
+          console.error('Service ID is missing or empty:', serviceId);
+          showError('Service ID not found. Cannot update service.');
+          setSavingService(false);
+          return;
         }
-        
-        if (serviceId) {
+
+        console.log('Calling updateService with:', {
+          userId,
+          serviceId,
+          serviceDataKeys: Object.keys(serviceData),
+        });
+
+        // EDIT MODE: Update existing service
+        // Step 1: Update service data (JSON)
+        const response = await vendorService.updateService(userId, serviceId, serviceData);
+
+        // Log response for debugging
+        console.log('Update Service API Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+          showError('Failed to update service. Please try again.');
+          return;
+        }
+
+        // Step 2: Update image if it changed (new image selected)
+        if (primaryImage && primaryImage !== originalImageUri) {
           try {
-            // Delay to ensure service is fully saved and indexed on backend
-            // Backend needs time to fully process and save the service before image upload
-            await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
-            
-            console.log('Uploading image for serviceId:', serviceId);
-            const imageResponse = await vendorService.uploadServiceImage(
+            console.log('Updating image for serviceId:', serviceId);
+            const imageResponse = await vendorService.updateServiceImage(
               userId,
               serviceId,
               primaryImage
             );
 
             if (imageResponse.success) {
-              console.log('Image uploaded successfully');
+              console.log('Image updated successfully');
             } else {
-              console.warn('Image upload failed, but service was created');
-              // Don't show error - service was created successfully
+              console.warn('Image update failed, but service was updated');
+              // Don't show error - service was updated successfully
             }
           } catch (imageError) {
-            console.error('Image upload error:', imageError);
-            // Don't show error - service was created successfully
-            // Image can be uploaded later if needed
+            console.error('Image update error:', imageError);
+            // Don't show error - service was updated successfully
+            // Image can be updated later if needed
           }
-        } else {
-          console.warn('ServiceId not found in response, skipping image upload');
-          console.log('Response data structure:', JSON.stringify(responseData, null, 2));
         }
-      }
 
-      // Show success message
-      showSuccess('Service added successfully!');
-      navigation.navigate('Services');
+        // Show success message
+        showSuccess('Service updated successfully!');
+        navigation.navigate('Services');
+      } else {
+        // ADD MODE: Create new service
+        // Step 1: Call API to create service (JSON)
+        const response = await vendorService.addService(userId, serviceData);
+
+        // Log response for debugging
+        console.log('Add Service API Response:', JSON.stringify(response, null, 2));
+
+        if (!response.success) {
+          showError('Failed to add service. Please try again.');
+          return;
+        }
+
+        // Step 2: Upload image if provided
+        if (primaryImage && response.data) {
+          // Extract serviceId from response
+          // Response structure: { services: [{ serviceId: "...", ... }] }
+          const responseData = response.data as any;
+          let newServiceId: string | undefined;
+          
+          // Check if services array exists and get the LAST service's serviceId (newly created one)
+          if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+            // Get the last service in the array (the newly created one)
+            const lastService = responseData.services[responseData.services.length - 1];
+            newServiceId = lastService.serviceId;
+          } else if (responseData.serviceId) {
+            // Fallback: check if serviceId is directly in response.data
+            newServiceId = responseData.serviceId;
+          }
+          
+          if (newServiceId) {
+            try {
+              // Delay to ensure service is fully saved and indexed on backend
+              // Backend needs time to fully process and save the service before image upload
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+              
+              console.log('Uploading image for serviceId:', newServiceId);
+              const imageResponse = await vendorService.uploadServiceImage(
+                userId,
+                newServiceId,
+                primaryImage
+              );
+
+              if (imageResponse.success) {
+                console.log('Image uploaded successfully');
+              } else {
+                console.warn('Image upload failed, but service was created');
+                // Don't show error - service was created successfully
+              }
+            } catch (imageError) {
+              console.error('Image upload error:', imageError);
+              // Don't show error - service was created successfully
+              // Image can be uploaded later if needed
+            }
+          } else {
+            console.warn('ServiceId not found in response, skipping image upload');
+            console.log('Response data structure:', JSON.stringify(responseData, null, 2));
+          }
+        }
+
+        // Show success message
+        showSuccess('Service added successfully!');
+        navigation.navigate('Services');
+      }
     } catch (error) {
       const axiosError = error as CustomAxiosError;
       const errorMessage =
@@ -413,7 +509,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
                 >
                   <BackIcon width={hs(24)} height={vs(24)} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Add Service</Text>
+                <Text style={styles.headerTitle}>{isEditMode ? 'Edit Service' : 'Add Service'}</Text>
               </View>
               <PageIndicators totalSteps={3} currentStep={step} />
             </View>
@@ -510,13 +606,13 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
 
                     <View style={styles.chipRow}>
                       {['10', '15', '30', '45', '60', 'Custom'].map((value) => {
-                        const isActive = selectedDuration === value;
+                        const isChipActive = selectedDuration === value;
                         return (
                           <TouchableOpacity
                             key={value}
                             style={[
                               styles.chip,
-                              isActive ? styles.chipActive : styles.chipInactive,
+                              isChipActive ? styles.chipActive : styles.chipInactive,
                             ]}
                             activeOpacity={0.8}
                             onPress={() => {
@@ -529,7 +625,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
                             <Text
                               style={[
                                 styles.chipText,
-                                isActive && styles.chipTextActive,
+                                isChipActive && styles.chipTextActive,
                               ]}
                             >
                               {value}
@@ -563,13 +659,13 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
 
                     <View style={styles.chipRow}>
                       {['0', '5', '10', '15', '30', 'Custom'].map((value) => {
-                        const isActive = selectedBuffer === value;
+                        const isChipActive = selectedBuffer === value;
                         return (
                           <TouchableOpacity
                             key={value}
                             style={[
                               styles.chip,
-                              isActive ? styles.chipActive : styles.chipInactive,
+                              isChipActive ? styles.chipActive : styles.chipInactive,
                             ]}
                             activeOpacity={0.8}
                             onPress={() => {
@@ -582,7 +678,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
                             <Text
                               style={[
                                 styles.chipText,
-                                isActive && styles.chipTextActive,
+                                isChipActive && styles.chipTextActive,
                               ]}
                             >
                               {value}
@@ -753,7 +849,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
 
               <OnboardingCTAButton
-                label={step === 2 ? 'Save Service' : 'Continue'}
+                label={step === 2 ? (isEditMode ? 'Update Service' : 'Save Service') : 'Continue'}
                 onPress={handleContinue}
                 disabled={
                   step === 0
@@ -910,7 +1006,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
                   >
                     <View style={styles.modalChipRow}>
                       {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'].map((value) => {
-                        const isActive = maxCustomers === value;
+                        const isChipActive = maxCustomers === value;
                         const screenWidth = Dimensions.get('window').width;
                         const modalPadding = hs(24) * 2; // Left + Right padding
                         const gapTotal = hs(8) * 6; // 6 gaps between 7 chips
@@ -926,7 +1022,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
                                 height: chipSize,
                                 borderRadius: chipSize / 2,
                               },
-                              isActive ? styles.chipActive : styles.chipInactive,
+                              isChipActive ? styles.chipActive : styles.chipInactive,
                             ]}
                             activeOpacity={0.8}
                             onPress={() => {
@@ -937,7 +1033,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
                             <Text
                               style={[
                                 styles.chipText,
-                                isActive && styles.chipTextActive,
+                                isChipActive && styles.chipTextActive,
                               ]}
                             >
                               {value}
@@ -983,6 +1079,23 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation }) => {
                 </View>
               </TouchableOpacity>
             </TouchableOpacity>
+          </Modal>
+
+          {/* Loading Overlay */}
+          <Modal
+            visible={savingService}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {}} // Prevent closing during save
+          >
+            <View style={styles.loadingOverlay}>
+              <View style={styles.loadingContent}>
+                <ActivityIndicator size="large" color={colors.text.primary} />
+                <Text style={styles.loadingText}>
+                  {isEditMode ? 'Updating service...' : 'Saving service...'}
+                </Text>
+              </View>
+            </View>
           </Modal>
         </KeyboardAvoidingView>
     </SafeAreaView>
@@ -1372,6 +1485,19 @@ const styles = StyleSheet.create({
   uploadedImage: {
     width: '100%',
     height: vs(200),
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContent: {
+    backgroundColor: colors.background.white,
+    borderRadius: ms(12),
+    padding: vs(24),
+    alignItems: 'center',
+    minWidth: hs(120),
   },
 });
 

@@ -125,6 +125,7 @@ export interface Service {
   assignedStaff: string[];
   maximumNo: number;
   serviceImage?: string; // Optional service image URL
+  isActive?: boolean; // Optional active status
 }
 
 /**
@@ -578,6 +579,271 @@ class VendorService {
         `${API_ENDPOINTS.VENDOR.GET_SERVICES}/${userId}/services`
       );
       return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a service
+   * @param userId - User ID
+   * @param serviceId - Service ID to delete
+   * @returns Promise with delete response
+   */
+  async deleteService(
+    userId: string,
+    serviceId: string
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      const response = await apiClient.delete<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/service`,
+        {
+          data: {
+            serviceId,
+          },
+        }
+      );
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Update service (JSON)
+   * @param userId - User ID
+   * @param serviceId - Service ID to update
+   * @param serviceData - Updated service data
+   * @returns Promise with update response
+   */
+  async updateService(
+    userId: string,
+    serviceId: string,
+    serviceData: {
+      serviceName: string;
+      serviceDuration: number;
+      serviceCost: number;
+      gender: string;
+      description: string;
+      category: string;
+      bufferTime: number;
+      assignedStaff: string[];
+      maximumNo: number;
+      isActive?: boolean;
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload exactly as backend expects: userId, serviceId, and all service fields
+      const payload: {
+        userId: string;
+        serviceId: string;
+        serviceName: string;
+        serviceDuration: number;
+        serviceCost: number;
+        gender: string;
+        description: string;
+        category: string;
+        bufferTime: number;
+        assignedStaff: string[];
+        maximumNo: number;
+        isActive?: boolean;
+      } = {
+        userId: userId,
+        serviceId: serviceId,
+        serviceName: serviceData.serviceName,
+        serviceDuration: serviceData.serviceDuration,
+        serviceCost: serviceData.serviceCost,
+        gender: serviceData.gender,
+        description: serviceData.description,
+        category: serviceData.category,
+        bufferTime: serviceData.bufferTime,
+        assignedStaff: serviceData.assignedStaff,
+        maximumNo: serviceData.maximumNo,
+      };
+
+      // Add isActive if provided
+      if (serviceData.isActive !== undefined) {
+        payload.isActive = serviceData.isActive;
+      }
+
+      if (__DEV__) {
+        console.log('[UpdateService] UserId:', userId);
+        console.log('[UpdateService] ServiceId:', serviceId);
+        console.log('[UpdateService] Payload being sent:', JSON.stringify(payload, null, 2));
+      }
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/update-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Toggle service active status
+   * @param userId - User ID
+   * @param serviceId - Service ID
+   * @param isActive - Active status (true/false)
+   * @returns Promise with update response
+   */
+  async toggleServiceStatus(
+    userId: string,
+    serviceId: string,
+    isActive: boolean
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+
+      // Prepare payload with only userId, serviceId, and isActive
+      const payload = {
+        userId: userId,
+        serviceId: serviceId,
+        isActive: isActive,
+      };
+
+      if (__DEV__) {
+        console.log('[ToggleServiceStatus] Payload being sent:', JSON.stringify(payload, null, 2));
+      }
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/update-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Update service image
+   * @param userId - User ID
+   * @param serviceId - Service ID
+   * @param imageUri - Image URI
+   * @returns Promise with update response
+   */
+  async updateServiceImage(
+    userId: string,
+    serviceId: string,
+    imageUri: string
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+      if (!imageUri) {
+        throw new Error('Image URI is required');
+      }
+
+      // Create FormData for image upload
+      // Backend expects exactly: serviceId and serviceImage
+      const formData = new FormData();
+      
+      // Append serviceId as string (required by backend)
+      formData.append('serviceId', serviceId);
+
+      // Append image file (required by backend)
+      // React Native FormData requires uri, type, and name
+      const imageFile = {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'service-image.jpg',
+      };
+      formData.append('serviceImage', imageFile as any);
+
+      if (__DEV__) {
+        console.log('[UpdateServiceImage] Uploading image for serviceId:', serviceId);
+      }
+
+      // Make PATCH request with FormData
+      // Use fetch API directly for FormData as it's more reliable in React Native
+      const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/update-service`;
+      
+      // Get auth token from storage
+      const token = await AsyncStorage.getItem('auth_token');
+      
+      if (__DEV__) {
+        console.log('[UpdateServiceImage] Request URL:', url);
+        console.log('[UpdateServiceImage] ServiceId:', serviceId);
+        console.log('[UpdateServiceImage] Image URI:', imageUri);
+      }
+      
+      // Use fetch API for FormData upload (more reliable in React Native)
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+          Accept: 'application/json',
+          // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorData: any;
+        try {
+          const text = await response.text();
+          errorData = text ? JSON.parse(text) : { message: 'Unknown error' };
+        } catch {
+          errorData = { 
+            success: false,
+            message: `Upload failed with status ${response.status}` 
+          };
+        }
+        
+        if (__DEV__) {
+          console.error('[UpdateServiceImage] Full error response:', JSON.stringify(errorData, null, 2));
+          console.error('[UpdateServiceImage] Response status:', response.status);
+          console.error('[UpdateServiceImage] ServiceId sent:', serviceId);
+          console.error('[UpdateServiceImage] UserId sent:', userId);
+        }
+        
+        // Extract error message from various possible formats
+        const errorMessage = 
+          errorData.message || 
+          errorData.error?.message || 
+          errorData.error ||
+          `Upload failed with status ${response.status}`;
+        
+        throw new Error(`Failed to update service image: ${errorMessage}`);
+      }
+
+      const responseData: ApiResponse<BusinessSetupResponseData> = await response.json();
+      
+      if (__DEV__) {
+        console.log('[UpdateServiceImage] Success response:', JSON.stringify(responseData, null, 2));
+      }
+      
+      return responseData;
     } catch (error) {
       // Error is already handled by interceptor
       throw error;

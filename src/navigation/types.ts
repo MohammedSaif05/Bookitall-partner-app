@@ -7,6 +7,7 @@
 
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { Service } from '../services/api/vendor.service';
 
 /**
  * Dashboard Stack Param List
@@ -38,7 +39,7 @@ export type RootStackParamList = {
   Staffs: undefined;
   AddStaff: { staffName?: string; currentName?: string; isActive?: boolean } | undefined;
   Services: undefined;
-  AddService: undefined;
+  AddService: { service?: Service } | undefined;
 };
 
 /**

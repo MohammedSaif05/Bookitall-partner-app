@@ -360,6 +360,36 @@ const StaffsScreen: React.FC<StaffsScreenProps> = ({ navigation }) => {
             </View>
           </TouchableWithoutFeedback>
         </Modal>
+
+        {/* Loading Overlay for Toggle */}
+        <Modal
+          visible={togglingStaff !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {}} // Prevent closing during toggle
+        >
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingContent}>
+              <ActivityIndicator size="large" color={colors.text.primary} />
+              <Text style={styles.loadingText}>Updating staff status...</Text>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Loading Overlay for Delete */}
+        <Modal
+          visible={deleteLoading}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {}} // Prevent closing during delete
+        >
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingContent}>
+              <ActivityIndicator size="large" color={colors.text.primary} />
+              <Text style={styles.loadingText}>Deleting staff member...</Text>
+            </View>
+          </View>
+        </Modal>
         </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
@@ -541,6 +571,25 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border.light,
     marginVertical: vs(4),
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContent: {
+    backgroundColor: colors.background.white,
+    borderRadius: ms(12),
+    padding: vs(24),
+    alignItems: 'center',
+    minWidth: hs(120),
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.text.primary,
+    marginTop: vs(16),
+    textAlign: 'center',
   },
 });
 

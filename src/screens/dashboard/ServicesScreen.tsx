@@ -27,7 +27,7 @@ import BackIcon from '../../assets/svg/icons/back.svg';
 import { SearchBar } from '../../components/dashboard';
 import { vendorService, type Service, type CustomAxiosError } from '../../services/api';
 import { userStorage } from '../../utils/storage';
-import { showError } from '../../utils/flashMessage';
+import { showError, showSuccess } from '../../utils/flashMessage';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -43,6 +43,7 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [togglingService, setTogglingService] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const fetchServices = async () => {
     try {
@@ -124,27 +125,99 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
 
   const handleEdit = () => {
     if (selectedService) {
-      // TODO: Navigate to edit service screen
-      // navigation.navigate('EditService', { serviceId: selectedService.serviceId });
+      // Navigate to AddService screen with service data for editing
+      navigation.navigate('AddService', { service: selectedService });
       handleCloseMenu();
     }
   };
 
-  const handleDelete = () => {
-    if (selectedService) {
-      // TODO: Implement delete service
-      // For now, just close the menu
-      handleCloseMenu();
+  const handleDelete = async () => {
+    if (!selectedService) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+      const userId = await userStorage.getUserId();
+
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        handleCloseMenu();
+        return;
+      }
+
+      const response = await vendorService.deleteService(userId, selectedService.serviceId);
+
+      if (response.success) {
+        showSuccess('Service deleted successfully');
+        handleCloseMenu();
+        // Refresh services list
+        await fetchServices();
+      } else {
+        showError('Failed to delete service. Please try again.');
+      }
+    } catch (error) {
+      const axiosError = error as CustomAxiosError;
+      const errorMessage =
+        axiosError.response?.data?.message || 'Failed to delete service. Please try again.';
+      showError(errorMessage);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
   const handleToggleService = async (serviceId: string) => {
-    // TODO: Implement toggle service active/inactive
-    // For now, just show a message
-    setTogglingService(serviceId);
-    setTimeout(() => {
+    try {
+      setTogglingService(serviceId);
+      
+      const userId = await userStorage.getUserId();
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        setTogglingService(null);
+        return;
+      }
+
+      // Find the current service to get its current isActive status
+      const currentService = servicesList.find(s => s.serviceId === serviceId);
+      if (!currentService) {
+        showError('Service not found');
+        setTogglingService(null);
+        return;
+      }
+
+      // Toggle the isActive status
+      const newActiveStatus = !(currentService.isActive ?? true);
+
+      // Call API to update service status
+      const response = await vendorService.toggleServiceStatus(
+        userId,
+        serviceId,
+        newActiveStatus
+      );
+
+      if (response.success) {
+        // Update the local state immediately for better UX
+        setServicesList(prevServices =>
+          prevServices.map(service =>
+            service.serviceId === serviceId
+              ? { ...service, isActive: newActiveStatus }
+              : service
+          )
+        );
+        showSuccess(`Service ${newActiveStatus ? 'activated' : 'deactivated'} successfully`);
+      } else {
+        showError('Failed to update service status');
+      }
+    } catch (error) {
+      const axiosError = error as CustomAxiosError;
+      const errorMessage =
+        axiosError.response?.data?.message ||
+        axiosError.message ||
+        'Failed to update service status';
+      showError(errorMessage);
+    } finally {
       setTogglingService(null);
-    }, 500);
+    }
   };
 
   return (
@@ -248,7 +321,7 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
                       <View style={styles.serviceDetailsRow}>
                         {/* Toggle Switch */}
                         <Switch
-                          value={true} // TODO: Add isActive field to Service interface
+                          value={service.isActive ?? true}
                           onValueChange={() => handleToggleService(service.serviceId)}
                           disabled={togglingService === service.serviceId}
                           trackColor={{
@@ -337,19 +410,35 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
                     <Text style={styles.menuItemText}>Edit</Text>
                   </TouchableOpacity>
                   <View style={styles.menuDivider} />
-                  <TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={handleDelete}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.menuItemText, styles.deleteText]}>
-                      Delete
-                    </Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.menuItem, deleteLoading && styles.menuItemDisabled]}
+                      onPress={handleDelete}
+                      activeOpacity={0.7}
+                      disabled={deleteLoading}
+                    >
+                      <Text style={[styles.menuItemText, styles.deleteText]}>
+                        {deleteLoading ? 'Deleting...' : 'Delete'}
+                      </Text>
+                    </TouchableOpacity>
                 </View>
               </TouchableWithoutFeedback>
             </View>
           </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* Loading Overlay for Toggle */}
+        <Modal
+          visible={togglingService !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {}} // Prevent closing during toggle
+        >
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingContent}>
+              <ActivityIndicator size="large" color={colors.text.primary} />
+              <Text style={styles.loadingText}>Updating service status...</Text>
+            </View>
+          </View>
         </Modal>
       </View>
     </SafeAreaView>
@@ -587,6 +676,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: hs(20),
     paddingVertical: vs(12),
   },
+  menuItemDisabled: {
+    opacity: 0.5,
+  },
   menuItemText: {
     ...typography.body,
     fontSize: 16,
@@ -599,6 +691,25 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border.light,
     marginVertical: vs(4),
+  },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContent: {
+    backgroundColor: colors.background.white,
+    borderRadius: ms(12),
+    padding: vs(24),
+    alignItems: 'center',
+    minWidth: hs(120),
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.text.primary,
+    marginTop: vs(16),
+    textAlign: 'center',
   },
 });
 
