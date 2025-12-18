@@ -62,7 +62,9 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
   // Determine which cards to show based on businessType and staff field presence
   const isIndividual = vendorData?.businessType === 'Individual';
   const hasStaffField = vendorData?.staff !== undefined; // Check if staff field exists, regardless of items
+  const hasServicesField = vendorData?.services !== undefined; // Check if services field exists, regardless of items
   const showTeamCard = !isIndividual && !hasStaffField; // Hide team card for Individual or if staff field exists
+  const showServicesCard = !hasServicesField; // Hide services card if services field exists
 
   // Format location text: "address, city"
   const locationText = vendorData
@@ -111,7 +113,16 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
 
       {/* Store completion progress */}
       <View style={styles.progressSection}>
-        <StoreCompletionProgress progress={hasStaffField ? 0.25 : 0} />
+        {/* Calculate progress: 25% for staff, 25% for services */}
+        <StoreCompletionProgress 
+          progress={
+            hasStaffField && hasServicesField 
+              ? 0.5 
+              : hasStaffField 
+              ? 0.25 
+              : 0
+          } 
+        />
         
         {/* Conditionally render team card only for Storefront/Franchise and when staff field doesn't exist */}
         {showTeamCard && (
@@ -124,33 +135,35 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           />
         )}
         
-        {/* Services card - active for Individual or when staff field exists, disabled otherwise */}
+        {/* Services card - hide if services field exists, otherwise show (active for Individual or when staff field exists) */}
+        {showServicesCard && (
+          <VerifyCompletionCard
+            title="Add your services"
+            description="Show what customers can book."
+            icon={ServiceVerifyIcon}
+            style={styles.cardSpacing}
+            disabled={!isIndividual && !hasStaffField}
+            onPress={() =>
+              navigation
+                .getParent()
+                ?.getParent()
+                ?.navigate('Services' as never)
+            }
+          />
+        )}
+        
         <VerifyCompletionCard
-          title="Add your services"
-          description="Show what customers can book."
-          icon={ServiceVerifyIcon}
+          title="Add bank details"
+          description="Receive payments seamlessly."
+          icon={BankVerifyIcon}
           style={styles.cardSpacing}
-          disabled={!isIndividual && !hasStaffField}
-          onPress={() =>
-            navigation
-              .getParent()
-              ?.getParent()
-              ?.navigate('Services' as never)
-          }
+          disabled={!hasServicesField}
         />
         
         <VerifyCompletionCard
           title="Verify your business"
           description="Increase trust with customers."
           icon={BusinessVerifyIcon}
-          style={styles.cardSpacing}
-          disabled={true}
-        />
-        
-        <VerifyCompletionCard
-          title="Add bank details"
-          description="Receive payments seamlessly."
-          icon={BankVerifyIcon}
           disabled={true}
         />
       </View>

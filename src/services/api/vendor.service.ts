@@ -183,6 +183,7 @@ export interface VendorData {
   isOnBoardCompleted: boolean;
   isBusinessVerified: boolean;
   staff?: StaffMember[]; // Optional staff array
+  services?: Service[]; // Optional services array
 }
 
 /**
