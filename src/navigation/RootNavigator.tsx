@@ -16,6 +16,7 @@ import AddStaffScreen from '../screens/dashboard/AddStaffScreen';
 import ServicesScreen from '../screens/dashboard/ServicesScreen';
 import AddServiceScreen from '../screens/dashboard/AddServiceScreen';
 import AddBankDetailsScreen from '../screens/dashboard/AddBankDetailsScreen';
+import VerifyBusinessScreen from '../screens/dashboard/VerifyBusinessScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -80,6 +81,14 @@ const RootNavigator = React.forwardRef<NavigationContainerRef<RootStackParamList
           <Stack.Screen
             name="AddBankDetails"
             component={AddBankDetailsScreen}
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
+            name="VerifyBusiness"
+            component={VerifyBusinessScreen}
             options={{
               animation: 'slide_from_right',
               gestureEnabled: true,

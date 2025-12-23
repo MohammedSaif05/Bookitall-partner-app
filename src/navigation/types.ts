@@ -41,6 +41,7 @@ export type RootStackParamList = {
   Services: undefined;
   AddService: { service?: Service } | undefined;
   AddBankDetails: undefined;
+  VerifyBusiness: undefined;
 };
 
 /**

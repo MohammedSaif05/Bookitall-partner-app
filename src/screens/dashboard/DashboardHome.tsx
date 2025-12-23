@@ -59,12 +59,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
     fetchVendorData();
   }, []);
 
-  // Determine which cards to show based on businessType and staff field presence
+  // Determine which cards to show based on businessType and field presence
   const isIndividual = vendorData?.businessType === 'Individual';
   const hasStaffField = vendorData?.staff !== undefined; // Check if staff field exists, regardless of items
   const hasServicesField = vendorData?.services !== undefined; // Check if services field exists, regardless of items
+  const hasBankDetailsField = vendorData?.bankDetails !== undefined; // Check if bankDetails field exists, regardless of items
   const showTeamCard = !isIndividual && !hasStaffField; // Hide team card for Individual or if staff field exists
   const showServicesCard = !hasServicesField; // Hide services card if services field exists
+  const showBankDetailsCard = !hasBankDetailsField; // Hide bank details card if bankDetails field exists
 
   // Format location text: "address, city"
   const locationText = vendorData
@@ -113,13 +115,19 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
 
       {/* Store completion progress */}
       <View style={styles.progressSection}>
-        {/* Calculate progress: 25% for staff, 25% for services */}
+        {/* Calculate progress: 25% for staff, 25% for services, 25% for bank details */}
         <StoreCompletionProgress 
           progress={
-            hasStaffField && hasServicesField 
-              ? 0.5 
-              : hasStaffField 
-              ? 0.25 
+            hasStaffField && hasServicesField && hasBankDetailsField
+              ? 0.75
+              : hasStaffField && hasServicesField
+              ? 0.5
+              : hasStaffField && hasBankDetailsField
+              ? 0.5
+              : hasServicesField && hasBankDetailsField
+              ? 0.5
+              : hasStaffField || hasServicesField || hasBankDetailsField
+              ? 0.25
               : 0
           } 
         />
@@ -152,25 +160,34 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           />
         )}
         
-        <VerifyCompletionCard
-          title="Add bank details"
-          description="Receive payments seamlessly."
-          icon={BankVerifyIcon}
-          style={styles.cardSpacing}
-          disabled={!hasServicesField}
-          onPress={() =>
-            navigation
-              .getParent()
-              ?.getParent()
-              ?.navigate('AddBankDetails' as never)
-          }
-        />
+        {/* Bank details card - hide if bankDetails field exists, otherwise show (active when services field exists) */}
+        {showBankDetailsCard && (
+          <VerifyCompletionCard
+            title="Add bank details"
+            description="Receive payments seamlessly."
+            icon={BankVerifyIcon}
+            style={styles.cardSpacing}
+            disabled={!hasServicesField}
+            onPress={() =>
+              navigation
+                .getParent()
+                ?.getParent()
+                ?.navigate('AddBankDetails' as never)
+            }
+          />
+        )}
         
         <VerifyCompletionCard
           title="Verify your business"
           description="Increase trust with customers."
           icon={BusinessVerifyIcon}
-          disabled={true}
+          disabled={!hasBankDetailsField}
+          onPress={() =>
+            navigation
+              .getParent()
+              ?.getParent()
+              ?.navigate('VerifyBusiness' as never)
+          }
         />
       </View>
     </View>

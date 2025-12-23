@@ -184,6 +184,11 @@ export interface VendorData {
   isBusinessVerified: boolean;
   staff?: StaffMember[]; // Optional staff array
   services?: Service[]; // Optional services array
+  bankDetails?: {
+    accountHolderName: string;
+    accountNumber: string;
+    ifscCode: string;
+  }; // Optional bank details
 }
 
 /**
