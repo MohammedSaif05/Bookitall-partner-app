@@ -137,7 +137,7 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
         {
           mediaType: 'photo' as MediaType,
           quality: 0.8,
-          selectionLimit: 1,
+          selectionLimit: MAX_GALLERY_IMAGES + 1, // Allow primary + gallery images
         },
         (response: ImagePickerResponse) => {
           if (response.didCancel) {
@@ -150,9 +150,19 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
           }
 
           if (response.assets && response.assets.length > 0) {
-            const asset = response.assets[0];
-            if (asset.uri) {
-              setPrimaryImage(asset.uri);
+            const uris = response.assets
+              .map(asset => asset.uri)
+              .filter((uri): uri is string => !!uri);
+            
+            if (uris.length > 0) {
+              // First image is primary, rest are gallery
+              setPrimaryImage(uris[0]);
+              
+              // Add remaining images to gallery (up to MAX_GALLERY_IMAGES)
+              const remainingImages = uris.slice(1).slice(0, MAX_GALLERY_IMAGES);
+              if (remainingImages.length > 0) {
+                setGalleryImages(remainingImages);
+              }
             }
           }
         }
@@ -163,54 +173,6 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
     }
   };
 
-  const handleGalleryImageUpload = async () => {
-    try {
-      if (galleryImages.length >= MAX_GALLERY_IMAGES) {
-        Alert.alert('Limit Reached', `You can only upload up to ${MAX_GALLERY_IMAGES} gallery images.`);
-        return;
-      }
-
-      const hasPermission = await requestStoragePermission();
-      
-      if (!hasPermission && Platform.OS === 'android') {
-        Alert.alert(
-          'Permission Required',
-          'Please grant photo access permission to upload images.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      launchImageLibrary(
-        {
-          mediaType: 'photo' as MediaType,
-          quality: 0.8,
-          selectionLimit: MAX_GALLERY_IMAGES - galleryImages.length,
-        },
-        (response: ImagePickerResponse) => {
-          if (response.didCancel) {
-            return;
-          }
-
-          if (response.errorMessage) {
-            Alert.alert('Error', response.errorMessage);
-            return;
-          }
-
-          if (response.assets && response.assets.length > 0) {
-            const newImages = response.assets
-              .map(asset => asset.uri)
-              .filter((uri): uri is string => !!uri);
-            
-            setGalleryImages(prev => [...prev, ...newImages].slice(0, MAX_GALLERY_IMAGES));
-          }
-        }
-      );
-    } catch (error) {
-      console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to open image picker. Please try again.');
-    }
-  };
 
   const removeGalleryImage = (index: number) => {
     setGalleryImages(prev => prev.filter((_, i) => i !== index));
@@ -292,7 +254,7 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
             showsVerticalScrollIndicator={false}
           >
             {/* Documents Section */}
-            <View style={styles.section}>
+            <View style={styles.sectionNoMargin}>
               <Text style={styles.sectionTitle}>Documents</Text>
               <Text style={styles.sectionDescription}>
                 Upload Legal documents of your shop (must include shop name and Owner details)
@@ -388,28 +350,8 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
                         </TouchableOpacity>
                       </View>
                     ))}
-                    {galleryImages.length < MAX_GALLERY_IMAGES && (
-                      <TouchableOpacity
-                        style={styles.galleryAddButton}
-                        onPress={handleGalleryImageUpload}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.galleryAddText}>+</Text>
-                      </TouchableOpacity>
-                    )}
                   </View>
                 </View>
-              )}
-
-              {/* Add Gallery Image Button (if no gallery images yet) */}
-              {galleryImages.length === 0 && (
-                <TouchableOpacity
-                  style={styles.addGalleryButton}
-                  onPress={handleGalleryImageUpload}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.addGalleryButtonText}>+ Add Gallery Image</Text>
-                </TouchableOpacity>
               )}
             </View>
           </ScrollView>
@@ -496,6 +438,9 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: vs(24),
   },
+  sectionNoMargin: {
+    marginBottom: 0,
+  },
   sectionTitle: {
     ...typography.h2,
     color: colors.text.primary,
@@ -549,7 +494,7 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border.medium,
     marginTop: 0,
-    marginBottom: vs(24),
+    marginBottom: vs(20),
   },
   uploadedFilesContainer: {
     marginTop: vs(12),
@@ -619,38 +564,6 @@ const styles = StyleSheet.create({
     fontSize: ms(18),
     fontWeight: '700',
     lineHeight: ms(20),
-  },
-  galleryAddButton: {
-    width: (Dimensions.get('window').width - hs(16) * 2 - hs(12)) / 2,
-    height: vs(120),
-    borderRadius: ms(8),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.medium,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F5F5F5',
-  },
-  galleryAddText: {
-    ...typography.h1,
-    color: colors.text.secondary,
-    fontSize: ms(32),
-  },
-  addGalleryButton: {
-    marginTop: vs(12),
-    paddingVertical: vs(12),
-    paddingHorizontal: hs(16),
-    borderRadius: ms(8),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.medium,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-  },
-  addGalleryButtonText: {
-    ...typography.body,
-    color: colors.text.primary,
-    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
