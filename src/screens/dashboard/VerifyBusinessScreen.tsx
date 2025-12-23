@@ -22,7 +22,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
-import DocumentPicker from 'react-native-document-picker';
+import { pick } from '@react-native-documents/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
@@ -59,15 +59,15 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
 
   const MAX_GALLERY_IMAGES = 2;
 
-  // Request storage permission for Android
-  const requestStoragePermission = async () => {
+  // Request storage permission for documents (Android)
+  const requestStoragePermission = async (): Promise<boolean> => {
     if (Platform.OS === 'android') {
       try {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
           {
             title: 'Storage Permission',
-            message: 'This app needs access to your storage to upload files.',
+            message: 'This app needs access to your storage to upload documents.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'OK',
@@ -79,31 +79,80 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
         return false;
       }
     }
-    // iOS permissions are handled automatically by the picker
+    // iOS permissions are handled automatically by the document picker
+    return true;
+  };
+
+  // Request photo permission for images (Android)
+  const requestPhotoPermission = async (): Promise<boolean> => {
+    if (Platform.OS === 'android') {
+      try {
+        // For Android 13+ (API 33+), use READ_MEDIA_IMAGES
+        if (Platform.Version >= 33) {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+            {
+              title: 'Photo Permission',
+              message: 'This app needs access to your photos to upload images.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            }
+          );
+          return granted === PermissionsAndroid.RESULTS.GRANTED;
+        } else {
+          // For Android < 13, use READ_EXTERNAL_STORAGE
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+            {
+              title: 'Storage Permission',
+              message: 'This app needs access to your storage to upload images.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            }
+          );
+          return granted === PermissionsAndroid.RESULTS.GRANTED;
+        }
+      } catch (err) {
+        console.warn('Photo permission error:', err);
+        return false;
+      }
+    }
+    // iOS permissions are handled automatically by the image picker
     return true;
   };
 
   const handleDocumentUpload = async () => {
     try {
+      // Request permission first
       const hasPermission = await requestStoragePermission();
       
-      if (!hasPermission && Platform.OS === 'android') {
+      if (!hasPermission) {
         Alert.alert(
           'Permission Required',
-          'Please grant storage access permission to upload documents.',
-          [{ text: 'OK' }]
+          'Please grant storage access permission to upload documents. You can enable it in Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'OK', 
+              onPress: () => {
+                // User can manually grant permission and try again
+              }
+            }
+          ]
         );
         return;
       }
 
       // Use document picker for PDF files
-      const result = await DocumentPicker.pick({
-        type: [DocumentPicker.types.pdf],
+      const result = await pick({
+        type: ['application/pdf'],
         allowMultiSelection: true,
       });
 
       if (result && result.length > 0) {
-        const newDocuments: DocumentFile[] = result.map(doc => ({
+        const newDocuments: DocumentFile[] = result.map((doc: any) => ({
           uri: doc.uri,
           name: doc.name || `Document ${documents.length + 1}.pdf`,
         }));
@@ -111,7 +160,7 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
       }
     } catch (error: any) {
       // User cancelled the picker
-      if (DocumentPicker.isCancel(error)) {
+      if (error?.code === 'DOCUMENT_PICKER_CANCELED' || error?.message?.includes('cancel')) {
         return;
       }
       
@@ -122,13 +171,22 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
 
   const handlePrimaryImageUpload = async () => {
     try {
-      const hasPermission = await requestStoragePermission();
+      // Request permission first
+      const hasPermission = await requestPhotoPermission();
       
-      if (!hasPermission && Platform.OS === 'android') {
+      if (!hasPermission) {
         Alert.alert(
           'Permission Required',
-          'Please grant photo access permission to upload images.',
-          [{ text: 'OK' }]
+          'Please grant photo access permission to upload images. You can enable it in Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'OK', 
+              onPress: () => {
+                // User can manually grant permission and try again
+              }
+            }
+          ]
         );
         return;
       }
