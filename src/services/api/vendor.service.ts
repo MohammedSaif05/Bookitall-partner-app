@@ -850,6 +850,55 @@ class VendorService {
       throw error;
     }
   }
+
+  /**
+   * Add bank details
+   * @param userId - User ID
+   * @param bankDetails - Bank details object
+   * @returns Promise with response
+   */
+  async addBankDetails(
+    userId: string,
+    bankDetails: {
+      accountHolderName: string;
+      accountNumber: string;
+      ifscCode: string;
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!bankDetails) {
+        throw new Error('Bank details are required');
+      }
+      if (!bankDetails.accountHolderName || !bankDetails.accountNumber || !bankDetails.ifscCode) {
+        throw new Error('All bank detail fields are required');
+      }
+
+      // Prepare payload as backend expects
+      const payload = {
+        userId: userId,
+        bankDetails: {
+          accountNumber: bankDetails.accountNumber.trim(),
+          ifscCode: bankDetails.ifscCode.trim(),
+          accountHolderName: bankDetails.accountHolderName.trim(),
+        },
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ONBOARDING}/${userId}/add-bank-details`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance

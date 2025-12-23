@@ -158,6 +158,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           icon={BankVerifyIcon}
           style={styles.cardSpacing}
           disabled={!hasServicesField}
+          onPress={() =>
+            navigation
+              .getParent()
+              ?.getParent()
+              ?.navigate('AddBankDetails' as never)
+          }
         />
         
         <VerifyCompletionCard

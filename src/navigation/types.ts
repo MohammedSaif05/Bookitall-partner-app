@@ -40,6 +40,7 @@ export type RootStackParamList = {
   AddStaff: { staffName?: string; currentName?: string; isActive?: boolean } | undefined;
   Services: undefined;
   AddService: { service?: Service } | undefined;
+  AddBankDetails: undefined;
 };
 
 /**
