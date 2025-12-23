@@ -189,6 +189,8 @@ export interface VendorData {
     accountNumber: string;
     ifscCode: string;
   }; // Optional bank details
+  businessImages?: string[]; // Optional business images array
+  businessDocument?: string[]; // Optional business documents array
 }
 
 /**
@@ -701,6 +703,179 @@ class VendorService {
     } catch (error) {
       // Error is already handled by interceptor
       throw error;
+    }
+  }
+
+  /**
+   * Upload business documents
+   * @param userId - User ID
+   * @param documentUris - Array of document file URIs
+   * @returns Promise with upload response
+   */
+  async uploadBusinessDocuments(
+    userId: string,
+    documentUris: string[]
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!documentUris || documentUris.length === 0) {
+        throw new Error('At least one document is required');
+      }
+
+      // Create FormData for document upload
+      const formData = new FormData();
+      formData.append('userId', userId);
+
+      // Append each document file
+      documentUris.forEach((uri, index) => {
+        const documentFile = {
+          uri: uri,
+          type: 'application/pdf',
+          name: `business-document-${index + 1}.pdf`,
+        };
+        formData.append('businessDocument', documentFile as any);
+      });
+
+      // Get auth token from storage
+      const token = await AsyncStorage.getItem('auth_token');
+
+      // Use fetch API directly for FormData as it's more reliable in React Native
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.BUSINESS_DOCUMENT}/${userId}/business-document`,
+        {
+          method: 'PATCH',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+            Accept: 'application/json',
+            // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        let errorData: any;
+        try {
+          const text = await response.text();
+          errorData = text ? JSON.parse(text) : { message: 'Unknown error' };
+        } catch {
+          errorData = {
+            success: false,
+            message: `Upload failed with status ${response.status}`,
+          };
+        }
+
+        const errorMessage =
+          errorData.message ||
+          errorData.error?.message ||
+          errorData.error ||
+          `Upload failed with status ${response.status}`;
+
+        throw new Error(`Failed to upload business documents: ${errorMessage}`);
+      }
+
+      const responseData: ApiResponse<BusinessSetupResponseData> =
+        await response.json();
+
+      return responseData;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to upload business documents. Please try again.';
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * Upload business images
+   * @param userId - User ID
+   * @param primaryImageUri - Primary image URI
+   * @param galleryImageUris - Array of gallery image URIs
+   * @returns Promise with upload response
+   */
+  async uploadBusinessImages(
+    userId: string,
+    primaryImageUri: string,
+    galleryImageUris: string[]
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!primaryImageUri) {
+        throw new Error('Primary image is required');
+      }
+
+      // Create FormData for image upload
+      const formData = new FormData();
+      formData.append('userId', userId);
+
+      // Combine all images (primary + gallery) and send all as businessImages
+      const allImages = [primaryImageUri, ...galleryImageUris];
+      
+      // Append all images as businessImages keys
+      allImages.forEach((uri, index) => {
+        const imageFile = {
+          uri: uri,
+          type: 'image/jpeg',
+          name: `business-image-${index + 1}.jpg`,
+        };
+        formData.append('businessImages', imageFile as any);
+      });
+
+      // Get auth token from storage
+      const token = await AsyncStorage.getItem('auth_token');
+
+      // Use fetch API directly for FormData as it's more reliable in React Native
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.BUSINESS_IMAGES}/${userId}/business-images`,
+        {
+          method: 'PATCH',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+            Accept: 'application/json',
+            // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        let errorData: any;
+        try {
+          const text = await response.text();
+          errorData = text ? JSON.parse(text) : { message: 'Unknown error' };
+        } catch {
+          errorData = {
+            success: false,
+            message: `Upload failed with status ${response.status}`,
+          };
+        }
+
+        const errorMessage =
+          errorData.message ||
+          errorData.error?.message ||
+          errorData.error ||
+          `Upload failed with status ${response.status}`;
+
+        throw new Error(`Failed to upload business images: ${errorMessage}`);
+      }
+
+      const responseData: ApiResponse<BusinessSetupResponseData> =
+        await response.json();
+
+      return responseData;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to upload business images. Please try again.';
+      throw new Error(errorMessage);
     }
   }
 

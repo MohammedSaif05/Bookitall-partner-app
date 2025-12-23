@@ -30,7 +30,7 @@ import { hs, vs, ms } from '../../theme/scaling';
 import BackIcon from '../../assets/svg/icons/back.svg';
 import UploadDocumentIcon from '../../assets/svg/icons/upload_document.svg';
 import { OnboardingCTAButton } from '../../components/onboarding';
-import type { CustomAxiosError } from '../../services/api';
+import { vendorService } from '../../services/api/vendor.service';
 import { userStorage } from '../../utils/storage';
 import { showError, showSuccess } from '../../utils/flashMessage';
 import type { RootStackScreenProps } from '../../navigation/types';
@@ -57,12 +57,29 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
     loadUserId();
   }, []);
 
-  const MAX_GALLERY_IMAGES = 2;
+  const MAX_GALLERY_IMAGES = 1; // Maximum 1 gallery image (total 2 images: 1 primary + 1 gallery)
 
   // Request storage permission for documents (Android)
   const requestStoragePermission = async (): Promise<boolean> => {
     if (Platform.OS === 'android') {
       try {
+        // For Android 13+ (API 33+), document picker uses system file picker
+        // which doesn't require READ_EXTERNAL_STORAGE permission
+        if (Platform.Version >= 33) {
+          // No permission needed for Android 13+ document picker
+          return true;
+        }
+        
+        // For Android < 13, check if permission is already granted
+        const checkResult = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
+        );
+        
+        if (checkResult) {
+          return true;
+        }
+        
+        // Request permission if not granted
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
           {
@@ -73,6 +90,7 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
             buttonPositive: 'OK',
           }
         );
+        
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       } catch (err) {
         console.warn('Storage permission error:', err);
@@ -89,6 +107,16 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
       try {
         // For Android 13+ (API 33+), use READ_MEDIA_IMAGES
         if (Platform.Version >= 33) {
+          // Check if permission is already granted
+          const checkResult = await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+          );
+          
+          if (checkResult) {
+            return true;
+          }
+          
+          // Request permission if not granted
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
             {
@@ -102,6 +130,16 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
           return granted === PermissionsAndroid.RESULTS.GRANTED;
         } else {
           // For Android < 13, use READ_EXTERNAL_STORAGE
+          // Check if permission is already granted
+          const checkResult = await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
+          );
+          
+          if (checkResult) {
+            return true;
+          }
+          
+          // Request permission if not granted
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
             {
@@ -125,27 +163,31 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
 
   const handleDocumentUpload = async () => {
     try {
-      // Request permission first
-      const hasPermission = await requestStoragePermission();
-      
-      if (!hasPermission) {
-        Alert.alert(
-          'Permission Required',
-          'Please grant storage access permission to upload documents. You can enable it in Settings.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'OK', 
-              onPress: () => {
-                // User can manually grant permission and try again
+      // Request permission first (only needed for Android < 13)
+      if (Platform.OS === 'android' && Platform.Version < 33) {
+        const hasPermission = await requestStoragePermission();
+        
+        if (!hasPermission) {
+          Alert.alert(
+            'Permission Required',
+            'Please grant storage access permission to upload documents. You can enable it in Settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Open Settings', 
+                onPress: () => {
+                  // On Android, we can't directly open settings, but user can do it manually
+                  // The permission dialog should have appeared
+                }
               }
-            }
-          ]
-        );
-        return;
+            ]
+          );
+          return;
+        }
       }
 
       // Use document picker for PDF files
+      // For Android 13+ and iOS, no permission needed - system handles it
       const result = await pick({
         type: ['application/pdf'],
         allowMultiSelection: true,
@@ -191,11 +233,24 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
         return;
       }
 
+      // Calculate how many images can still be selected
+      const currentImageCount = (primaryImage ? 1 : 0) + galleryImages.length;
+      const maxTotalImages = 2; // Maximum 2 images total (1 primary + 1 gallery)
+      const remainingSlots = maxTotalImages - currentImageCount;
+      
+      if (remainingSlots <= 0) {
+        Alert.alert(
+          'Limit Reached',
+          'You can only upload up to 2 images total (1 primary + 1 gallery).'
+        );
+        return;
+      }
+
       launchImageLibrary(
         {
           mediaType: 'photo' as MediaType,
           quality: 0.8,
-          selectionLimit: MAX_GALLERY_IMAGES + 1, // Allow primary + gallery images
+          selectionLimit: remainingSlots, // Allow only remaining slots
         },
         (response: ImagePickerResponse) => {
           if (response.didCancel) {
@@ -213,13 +268,27 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
               .filter((uri): uri is string => !!uri);
             
             if (uris.length > 0) {
-              // First image is primary, rest are gallery
-              setPrimaryImage(uris[0]);
-              
-              // Add remaining images to gallery (up to MAX_GALLERY_IMAGES)
-              const remainingImages = uris.slice(1).slice(0, MAX_GALLERY_IMAGES);
-              if (remainingImages.length > 0) {
-                setGalleryImages(remainingImages);
+              if (primaryImage) {
+                // If primary image already exists, add all selected images to gallery
+                const availableSlots = MAX_GALLERY_IMAGES - galleryImages.length;
+                const imagesToAdd = uris.slice(0, availableSlots);
+                if (imagesToAdd.length > 0) {
+                  setGalleryImages(prev => [...prev, ...imagesToAdd]);
+                } else {
+                  Alert.alert(
+                    'Limit Reached',
+                    `You can only upload up to ${MAX_GALLERY_IMAGES} gallery images.`
+                  );
+                }
+              } else {
+                // No primary image yet, first image becomes primary, rest go to gallery
+                setPrimaryImage(uris[0]);
+                
+                // Add remaining images to gallery (up to MAX_GALLERY_IMAGES)
+                const remainingImages = uris.slice(1).slice(0, MAX_GALLERY_IMAGES);
+                if (remainingImages.length > 0) {
+                  setGalleryImages(remainingImages);
+                }
               }
             }
           }
@@ -236,43 +305,60 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
     setGalleryImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Check if save button should be enabled - both documents and images are mandatory
+  const isSaveEnabled = documents.length > 0 && primaryImage !== null;
+
   const handleSave = async () => {
     if (!userId) {
       showError('User ID not found. Please login again.');
       return;
     }
 
-    // Validate that at least documents or images are uploaded
-    if (documents.length === 0 && !primaryImage) {
-      showError('Please upload at least documents or primary image');
+    // Validate that both documents and images are uploaded (both are mandatory)
+    if (documents.length === 0) {
+      showError('Please upload at least one document');
+      return;
+    }
+    
+    if (!primaryImage) {
+      showError('Please upload at least one image');
       return;
     }
 
     try {
       setLoading(true);
       
-      // TODO: Call API to upload documents and images
-      // For now, just show success message
-      // When API is ready, uncomment below:
-      // const response = await vendorService.verifyBusiness(userId, {
-      //   documents: documents,
-      //   primaryImage: primaryImage,
-      //   galleryImages: galleryImages,
-      // });
-      // if (response.success) {
-      //   showSuccess('Business verification details saved successfully');
-      //   navigation.goBack();
-      // } else {
-      //   showError('Failed to save verification details. Please try again.');
-      // }
+      // Upload documents
+      const documentUris = documents.map(doc => doc.uri);
+      const documentsResponse = await vendorService.uploadBusinessDocuments(
+        userId,
+        documentUris
+      );
 
-      // Temporary success message for now
+      if (!documentsResponse.success) {
+        showError('Failed to upload documents. Please try again.');
+        return;
+      }
+
+      // Upload images
+      const imagesResponse = await vendorService.uploadBusinessImages(
+        userId,
+        primaryImage,
+        galleryImages
+      );
+
+      if (!imagesResponse.success) {
+        showError('Failed to upload images. Please try again.');
+        return;
+      }
+
       showSuccess('Business verification details saved successfully');
       navigation.goBack();
     } catch (error) {
-      const axiosError = error as CustomAxiosError;
       const errorMessage =
-        axiosError.response?.data?.message || 'Failed to save verification details. Please try again.';
+        error instanceof Error
+          ? error.message
+          : 'Failed to save verification details. Please try again.';
       showError(errorMessage);
     } finally {
       setLoading(false);
@@ -320,37 +406,39 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
               
               {/* Documents Upload Area */}
               <TouchableOpacity
-                style={styles.imageUploadArea}
+                style={documents.length > 0 ? styles.imageUploadAreaSmall : styles.imageUploadArea}
                 activeOpacity={0.8}
                 onPress={handleDocumentUpload}
               >
-                <View style={styles.imageUploadContent}>
-                  <View style={styles.uploadIconContainer}>
-                    <UploadDocumentIcon width={hs(48)} height={vs(48)} />
+                {documents.length > 0 ? (
+                  <View style={styles.documentsListContainer}>
+                    {documents.map((doc, index) => (
+                      <View key={index} style={styles.uploadedFileItem}>
+                        <Text style={styles.uploadedFileName} numberOfLines={1}>
+                          {doc.name}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            setDocuments(prev => prev.filter((_, i) => i !== index));
+                          }}
+                          style={styles.removeButton}
+                        >
+                          <Text style={styles.removeButtonText}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
                   </View>
-                  <Text style={styles.uploadText}>Upload Documents</Text>
-                  <Text style={styles.uploadHint}>Accepted format: PDF</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Display uploaded documents */}
-              {documents.length > 0 && (
-                <View style={styles.uploadedFilesContainer}>
-                  {documents.map((doc, index) => (
-                    <View key={index} style={styles.uploadedFileItem}>
-                      <Text style={styles.uploadedFileName} numberOfLines={1}>
-                        {doc.name}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => setDocuments(prev => prev.filter((_, i) => i !== index))}
-                        style={styles.removeButton}
-                      >
-                        <Text style={styles.removeButtonText}>Remove</Text>
-                      </TouchableOpacity>
+                ) : (
+                  <View style={styles.imageUploadContent}>
+                    <View style={styles.uploadIconContainer}>
+                      <UploadDocumentIcon width={hs(48)} height={vs(48)} />
                     </View>
-                  ))}
-                </View>
-              )}
+                    <Text style={styles.uploadText}>Upload Documents</Text>
+                    <Text style={styles.uploadHint}>Accepted format: PDF</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
 
             {/* Separator */}
@@ -363,36 +451,28 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
                 Upload primary image and add up to {MAX_GALLERY_IMAGES} gallery images
               </Text>
               
-              {/* Primary Image Upload */}
-              <TouchableOpacity
-                style={styles.imageUploadArea}
-                activeOpacity={0.8}
-                onPress={handlePrimaryImageUpload}
-              >
-                {primaryImage ? (
-                  <Image
-                    source={{ uri: primaryImage }}
-                    style={styles.uploadedImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.imageUploadContent}>
-                    <View style={styles.uploadIconContainer}>
-                      <UploadDocumentIcon width={hs(48)} height={vs(48)} />
-                    </View>
-                    <Text style={styles.uploadText}>Upload Images</Text>
-                    <Text style={styles.uploadHint}>
-                      Clear images help customers trust your shop
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Gallery Images */}
-              {galleryImages.length > 0 && (
+              {/* Gallery Images - Show primary + gallery images */}
+              {(primaryImage || galleryImages.length > 0) && (
                 <View style={styles.galleryContainer}>
                   <Text style={styles.galleryTitle}>Gallery Images</Text>
                   <View style={styles.galleryGrid}>
+                    {/* Show primary image first */}
+                    {primaryImage && (
+                      <View style={styles.galleryItem}>
+                        <Image
+                          source={{ uri: primaryImage }}
+                          style={styles.galleryImage}
+                          resizeMode="cover"
+                        />
+                        <TouchableOpacity
+                          style={styles.galleryRemoveButton}
+                          onPress={() => setPrimaryImage(null)}
+                        >
+                          <Text style={styles.galleryRemoveText}>×</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {/* Show gallery images */}
                     {galleryImages.map((imageUri, index) => (
                       <View key={index} style={styles.galleryItem}>
                         <Image
@@ -411,6 +491,25 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
                   </View>
                 </View>
               )}
+
+              {/* Primary Image Upload - Hide if 2 images selected (primary + 1 gallery) */}
+              {(primaryImage && galleryImages.length >= 1) ? null : (
+                <TouchableOpacity
+                  style={styles.imageUploadArea}
+                  activeOpacity={0.8}
+                  onPress={handlePrimaryImageUpload}
+                >
+                  <View style={styles.imageUploadContent}>
+                    <View style={styles.uploadIconContainer}>
+                      <UploadDocumentIcon width={hs(48)} height={vs(48)} />
+                    </View>
+                    <Text style={styles.uploadText}>Upload Images</Text>
+                    <Text style={styles.uploadHint}>
+                      Clear images help customers trust your shop
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollView>
 
@@ -427,7 +526,7 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
             <OnboardingCTAButton
               label={loading ? 'Saving...' : 'Save'}
               onPress={handleSave}
-              disabled={loading}
+              disabled={loading || !isSaveEnabled}
               loading={loading}
               style={styles.saveButton}
             />
@@ -521,6 +620,16 @@ const styles = StyleSheet.create({
     marginBottom: vs(20),
     overflow: 'hidden',
   },
+  imageUploadAreaSmall: {
+    width: '100%',
+    minHeight: vs(100),
+    borderRadius: ms(12),
+    backgroundColor: 'transparent',
+    borderWidth: ms(1.5),
+    borderColor: colors.border.dark,
+    marginBottom: vs(20),
+    overflow: 'hidden',
+  },
   imageUploadContent: {
     flex: 1,
     alignItems: 'center',
@@ -544,18 +653,15 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: 'center',
   },
-  uploadedImage: {
-    width: '100%',
-    height: vs(200),
-  },
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border.medium,
     marginTop: 0,
     marginBottom: vs(20),
   },
-  uploadedFilesContainer: {
-    marginTop: vs(12),
+  documentsListContainer: {
+    padding: vs(12),
+    width: '100%',
   },
   uploadedFileItem: {
     flexDirection: 'row',
@@ -582,7 +688,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   galleryContainer: {
-    marginTop: vs(16),
+    marginTop: vs(24),
+    marginBottom: vs(16),
   },
   galleryTitle: {
     ...typography.body,

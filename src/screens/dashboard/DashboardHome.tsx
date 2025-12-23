@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
@@ -64,6 +65,9 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
   const hasStaffField = vendorData?.staff !== undefined; // Check if staff field exists, regardless of items
   const hasServicesField = vendorData?.services !== undefined; // Check if services field exists, regardless of items
   const hasBankDetailsField = vendorData?.bankDetails !== undefined; // Check if bankDetails field exists, regardless of items
+  const hasBusinessImages = vendorData?.businessImages !== undefined && (vendorData?.businessImages?.length ?? 0) > 0; // Check if businessImages field exists and has items
+  const hasBusinessDocument = vendorData?.businessDocument !== undefined && (vendorData?.businessDocument?.length ?? 0) > 0; // Check if businessDocument field exists and has items
+  const isBusinessVerified = hasBusinessImages && hasBusinessDocument; // Both images and documents are required
   const showTeamCard = !isIndividual && !hasStaffField; // Hide team card for Individual or if staff field exists
   const showServicesCard = !hasServicesField; // Hide services card if services field exists
   const showBankDetailsCard = !hasBankDetailsField; // Hide bank details card if bankDetails field exists
@@ -86,8 +90,13 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header card */}
-      <View style={styles.headerCard}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header card */}
+        <View style={styles.headerCard}>
         {/* Top row: location + address, notification */}
         <View style={styles.headerTopRow}>
           <View style={styles.locationRow}>
@@ -115,10 +124,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
 
       {/* Store completion progress */}
       <View style={styles.progressSection}>
-        {/* Calculate progress: 25% for staff, 25% for services, 25% for bank details */}
+        {/* Calculate progress: 25% for staff, 25% for services, 25% for bank details, 25% for business verification */}
         <StoreCompletionProgress 
           progress={
-            hasStaffField && hasServicesField && hasBankDetailsField
+            isBusinessVerified
+              ? 1.0 // 100% when business is verified (all 4 steps complete)
+              : hasStaffField && hasServicesField && hasBankDetailsField
               ? 0.75
               : hasStaffField && hasServicesField
               ? 0.5
@@ -177,19 +188,44 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           />
         )}
         
-        <VerifyCompletionCard
-          title="Verify your business"
-          description="Increase trust with customers."
-          icon={BusinessVerifyIcon}
-          disabled={!hasBankDetailsField}
-          onPress={() =>
-            navigation
-              .getParent()
-              ?.getParent()
-              ?.navigate('VerifyBusiness' as never)
-          }
-        />
+        {/* Show Lottie animation if business is verified */}
+        {isBusinessVerified ? (
+          <View style={styles.verifiedSection}>
+            <View>
+              <View style={styles.lottieContainer}>
+                <LottieView
+                  source={require('../../assets/lottie/review_period.json')}
+                  autoPlay
+                  loop={true}
+                  style={styles.lottieAnimation}
+                />
+              </View>
+              <Text style={styles.reviewText} numberOfLines={1}>
+                Your shop is under review, it may take 2-3 business days.
+              </Text>
+            </View>
+            <View style={styles.footerTextContainer}>
+              <Text style={styles.footerTextLine}>Finish setup to</Text>
+              <Text style={styles.footerTextLine}>go live.</Text>
+              <Text style={styles.footerArrow}>→</Text>
+            </View>
+          </View>
+        ) : (
+          <VerifyCompletionCard
+            title="Verify your business"
+            description="Increase trust with customers."
+            icon={BusinessVerifyIcon}
+            disabled={!hasBankDetailsField}
+            onPress={() =>
+              navigation
+                .getParent()
+                ?.getParent()
+                ?.navigate('VerifyBusiness' as never)
+            }
+          />
+        )}
       </View>
+      </ScrollView>
     </View>
   );
 };
@@ -272,6 +308,59 @@ const styles = StyleSheet.create({
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  lottieContainer: {
+    width: '100%',
+    height: vs(200),
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginTop: vs(16),
+    marginLeft: -hs(20),
+  },
+  lottieAnimation: {
+    width: '100%',
+    height: '100%',
+  },
+  reviewText: {
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'left',
+    marginTop: vs(12),
+    marginLeft: hs(12),
+    marginRight: hs(12),
+    width: '100%',
+    lineHeight: vs(20),
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  verifiedSection: {
+    marginTop: vs(16),
+    minHeight: vs(500),
+  },
+  footerTextContainer: {
+    marginTop: vs(40),
+    marginBottom: vs(20),
+    marginLeft: hs(12),
+    marginRight: hs(12),
+    width: '100%',
+  },
+  footerTextLine: {
+    fontSize: ms(32),
+    fontWeight: '700',
+    color: '#5E5E5E',
+    lineHeight: vs(32),
+    letterSpacing: -0.5,
+  },
+  footerArrow: {
+    fontSize: ms(32),
+    fontWeight: '700',
+    color: '#5E5E5E',
+    lineHeight: vs(32),
+    marginTop: vs(2),
   },
 });
 

@@ -44,6 +44,8 @@ export const API_ENDPOINTS = {
     ADD_SERVICE: '/api/vendor', // For PATCH requests (add service)
     ADD_SERVICE_JSON: '/api/vendor', // For PATCH requests (add service JSON)
     GET_SERVICES: '/api/vendors', // For GET requests (fetch services)
+    BUSINESS_DOCUMENT: '/api/vendor', // For PATCH requests (upload business documents)
+    BUSINESS_IMAGES: '/api/vendor', // For PATCH requests (upload business images)
   },
 } as const;
 
