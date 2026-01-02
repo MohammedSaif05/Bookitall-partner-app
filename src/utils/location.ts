@@ -487,16 +487,18 @@ export const reverseGeocode = async (
       }
     }
 
-    // Extract city (locality) - from any result
+    // Extract city - use administrative_area_level_3 (as per requirement)
     const cityComponent = addressComponents.find((component: any) =>
-      component.types.includes('locality')
+      component.types.includes('administrative_area_level_3')
     );
     if (cityComponent) {
       city = cityComponent.long_name || cityComponent.short_name || '';
     } else {
-      // Fallback: search in all results for city
+      // Fallback: search in all results for administrative_area_level_3
       for (const result of data.results) {
-        const cc = result.address_components?.find((c: any) => c.types.includes('locality'));
+        const cc = result.address_components?.find((c: any) => 
+          c.types.includes('administrative_area_level_3')
+        );
         if (cc) {
           city = cc.long_name || cc.short_name || '';
           break;
@@ -504,7 +506,7 @@ export const reverseGeocode = async (
       }
     }
 
-    // Extract address line - prefer short format: street_number + route
+    // Extract address line - use street_number + route (as per requirement)
     const streetNumber = addressComponents.find((component: any) =>
       component.types.includes('street_number')
     );
@@ -513,14 +515,14 @@ export const reverseGeocode = async (
     );
     
     if (streetNumber && route) {
-      // Best case: "224, Noor Masjid St" format
-      addressLine = `${streetNumber.long_name}, ${route.short_name || route.long_name}`;
+      // Format: "224, Noor Masjid Street" (using long_name for both)
+      addressLine = `${streetNumber.long_name}, ${route.long_name}`;
     } else if (route) {
-      // Fallback: just route name
-      addressLine = route.short_name || route.long_name;
+      // Fallback: just route name (use long_name)
+      addressLine = route.long_name || route.short_name || '';
     } else if (streetNumber) {
       // Fallback: just street number
-      addressLine = streetNumber.long_name;
+      addressLine = streetNumber.long_name || '';
     } else {
       // Last resort: use formatted address but try to shorten it
       addressLine = bestResult.formatted_address || '';
@@ -531,47 +533,22 @@ export const reverseGeocode = async (
       }
     }
 
-    // Extract landmark - prioritize meaningful landmarks
-    // Priority: route (if meaningful like "Noor Masjid") > sublocality > neighborhood > premise (if meaningful)
-    const routeComponent = addressComponents.find((component: any) =>
-      component.types.includes('route')
-    );
-    const sublocalityComponent = addressComponents.find((component: any) =>
-      component.types.includes('sublocality') || component.types.includes('sublocality_level_1')
-    );
+    // Extract landmark - Priority: neighborhood > sublocality_level_1 (as per requirement)
     const neighborhoodComponent = addressComponents.find((component: any) =>
       component.types.includes('neighborhood')
     );
-    const premiseComponent = addressComponents.find((component: any) =>
-      component.types.includes('premise')
+    const sublocalityLevel1Component = addressComponents.find((component: any) =>
+      component.types.includes('sublocality_level_1')
     );
     
-    // Check if route is meaningful (not just "Street" or "Road")
-    if (routeComponent) {
-      const routeName = routeComponent.long_name || routeComponent.short_name || '';
-      // If route contains meaningful words (not just generic street names)
-      if (routeName && !/^(street|st|road|rd|avenue|ave|lane|ln|drive|dr|boulevard|blvd)$/i.test(routeName.trim())) {
-        landmark = routeName;
-      }
-    }
-    
-    // If no meaningful route, use sublocality (like "Fort Area")
-    if (!landmark && sublocalityComponent) {
-      landmark = sublocalityComponent.long_name || sublocalityComponent.short_name || '';
-    }
-    
-    // If still no landmark, use neighborhood (like "Aarif Nagar")
-    if (!landmark && neighborhoodComponent) {
+    // Priority 1: neighborhood
+    if (neighborhoodComponent) {
       landmark = neighborhoodComponent.long_name || neighborhoodComponent.short_name || '';
     }
     
-    // Last resort: use premise only if it's meaningful (not just numbers)
-    if (!landmark && premiseComponent) {
-      const premiseName = premiseComponent.long_name || premiseComponent.short_name || '';
-      // Only use premise if it's not just a number
-      if (premiseName && !/^\d+$/.test(premiseName.trim())) {
-        landmark = premiseName;
-      }
+    // Priority 2: sublocality_level_1 (only if neighborhood not found)
+    if (!landmark && sublocalityLevel1Component) {
+      landmark = sublocalityLevel1Component.long_name || sublocalityLevel1Component.short_name || '';
     }
 
     // Log for debugging
