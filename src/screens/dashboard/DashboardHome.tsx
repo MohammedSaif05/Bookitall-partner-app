@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
@@ -30,15 +30,24 @@ type DashboardHomeProps = DashboardStackScreenProps<'DashboardHome'>;
 const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
   const [vendorData, setVendorData] = useState<VendorData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchVendorData = useCallback(async () => {
+  const fetchVendorData = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const userId = await userStorage.getUserId();
       
       if (!userId) {
         showError('User ID not found. Please login again.');
-        setLoading(false);
+        if (isRefresh) {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
         return;
       }
 
@@ -53,9 +62,18 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
       console.error('Error fetching vendor data:', error);
       showError('Failed to load dashboard data');
     } finally {
-      setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   }, []);
+
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(() => {
+    fetchVendorData(true);
+  }, [fetchVendorData]);
 
   // Fetch vendor data when screen comes into focus (e.g., after navigating back from other screens)
   useFocusEffect(
@@ -162,6 +180,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.text.primary]}
+            tintColor={colors.text.primary}
+          />
+        }
       >
         {/* Header card */}
         <View style={styles.headerCard}>

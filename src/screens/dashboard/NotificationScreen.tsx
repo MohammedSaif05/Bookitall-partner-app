@@ -104,14 +104,23 @@ const NotificationScreen: React.FC<NotificationScreenProps> = ({
                 style={styles.retryButton}
                 activeOpacity={0.8}
                 onPress={() => {
-                  // Handle retry action - navigate to appropriate screen based on type
-                  if (item.type === 'service') {
-                    navigation.getParent()?.getParent()?.navigate('Services' as never);
-                  } else if (item.type === 'bank') {
-                    navigation.getParent()?.getParent()?.navigate('AddBankDetails' as never);
-                  } else if (item.type === 'image' || item.type === 'document') {
-                    navigation.getParent()?.getParent()?.navigate('VerifyBusiness' as never);
-                  }
+                  // First, navigate back to dashboard
+                  navigation.goBack();
+                  
+                  // Then navigate to appropriate screen based on type
+                  // Use setTimeout to ensure dashboard navigation completes first
+                  setTimeout(() => {
+                    const rootNavigation = navigation.getParent()?.getParent();
+                    if (rootNavigation) {
+                      if (item.type === 'service') {
+                        (rootNavigation as any).navigate('Services');
+                      } else if (item.type === 'bank') {
+                        (rootNavigation as any).navigate('AddBankDetails');
+                      } else if (item.type === 'image' || item.type === 'document') {
+                        (rootNavigation as any).navigate('VerifyBusiness');
+                      }
+                    }
+                  }, 100);
                 }}
               >
                 <Text style={styles.retryText}>Retry</Text>
