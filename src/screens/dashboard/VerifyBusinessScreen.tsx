@@ -30,7 +30,7 @@ import { hs, vs, ms } from '../../theme/scaling';
 import BackIcon from '../../assets/svg/icons/back.svg';
 import UploadDocumentIcon from '../../assets/svg/icons/upload_document.svg';
 import { OnboardingCTAButton } from '../../components/onboarding';
-import { vendorService } from '../../services/api/vendor.service';
+import { vendorService, type VendorData } from '../../services/api/vendor.service';
 import { userStorage } from '../../utils/storage';
 import { showError, showSuccess } from '../../utils/flashMessage';
 import type { RootStackScreenProps } from '../../navigation/types';
@@ -47,17 +47,63 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
   const [primaryImage, setPrimaryImage] = useState<string | null>(null);
   const [galleryImages, setGalleryImages] = useState<string[]>([]); // Up to 2 gallery images
   const [loading, setLoading] = useState(false);
+  const [fetchingData, setFetchingData] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+
+  const MAX_GALLERY_IMAGES = 1; // Maximum 1 gallery image (total 2 images: 1 primary + 1 gallery)
+
+  // Fetch and preload existing images and documents
+  const fetchExistingData = async (id: string) => {
+    try {
+      setFetchingData(true);
+      const response = await vendorService.getVendorByUserId(id);
+      
+      if (response.success && response.data) {
+        const vendorData: VendorData = response.data;
+        
+        // Preload business images
+        if (vendorData.businessImages && vendorData.businessImages.length > 0) {
+          const images = vendorData.businessImages;
+          // First image is primary, rest are gallery
+          setPrimaryImage(images[0]);
+          if (images.length > 1) {
+            setGalleryImages(images.slice(1).slice(0, MAX_GALLERY_IMAGES));
+          }
+        }
+        
+        // Preload business documents
+        if (vendorData.businessDocument) {
+          // businessDocument can be string or array
+          const documentUrls = Array.isArray(vendorData.businessDocument)
+            ? vendorData.businessDocument
+            : [vendorData.businessDocument];
+          
+          const documentFiles: DocumentFile[] = documentUrls.map((url, index) => ({
+            uri: url,
+            name: `Document ${index + 1}.pdf`,
+          }));
+          
+          setDocuments(documentFiles);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching existing data:', error);
+      // Don't show error to user, just continue without preloading
+    } finally {
+      setFetchingData(false);
+    }
+  };
 
   useEffect(() => {
     const loadUserId = async () => {
       const id = await userStorage.getUserId();
       setUserId(id);
+      if (id) {
+        await fetchExistingData(id);
+      }
     };
     loadUserId();
   }, []);
-
-  const MAX_GALLERY_IMAGES = 1; // Maximum 1 gallery image (total 2 images: 1 primary + 1 gallery)
 
   // Request storage permission for documents (Android)
   const requestStoragePermission = async (): Promise<boolean> => {
@@ -368,6 +414,18 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
   const handleCancel = () => {
     navigation.goBack();
   };
+
+  // Show loading while fetching existing data
+  if (fetchingData) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.text.primary} />
+          <Text style={styles.loadingText}>Loading shop details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -775,6 +833,12 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginTop: vs(16),
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background.primary,
   },
 });
 

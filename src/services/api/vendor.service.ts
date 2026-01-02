@@ -190,7 +190,14 @@ export interface VendorData {
     ifscCode: string;
   }; // Optional bank details
   businessImages?: string[]; // Optional business images array
-  businessDocument?: string[]; // Optional business documents array
+  businessDocument?: string | string[]; // Optional business documents (can be string or array)
+  serviceRejectMessage?: string; // Service rejection message
+  bankRejectMessage?: string; // Bank details rejection message
+  imageRejectMessage?: string; // Business images rejection message
+  documentRejectMessage?: string; // Business document rejection message
+  isBusinessDocumentApproved?: boolean; // Business document approval status
+  isBusinessImageApproved?: boolean; // Business image approval status
+  shopId?: string; // Shop ID
 }
 
 /**

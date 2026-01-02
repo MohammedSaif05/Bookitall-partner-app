@@ -5,9 +5,10 @@
  * @format
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import LottieView from 'lottie-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
@@ -30,47 +31,114 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
   const [vendorData, setVendorData] = useState<VendorData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchVendorData = async () => {
-      try {
-        setLoading(true);
-        const userId = await userStorage.getUserId();
-        
-        if (!userId) {
-          showError('User ID not found. Please login again.');
-          setLoading(false);
-          return;
-        }
-
-        const response = await vendorService.getVendorByUserId(userId);
-        
-        if (response.success && response.data) {
-          setVendorData(response.data);
-        } else {
-          showError('Failed to load vendor data');
-        }
-      } catch (error) {
-        console.error('Error fetching vendor data:', error);
-        showError('Failed to load dashboard data');
-      } finally {
+  const fetchVendorData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const userId = await userStorage.getUserId();
+      
+      if (!userId) {
+        showError('User ID not found. Please login again.');
         setLoading(false);
+        return;
       }
-    };
 
-    fetchVendorData();
+      const response = await vendorService.getVendorByUserId(userId);
+      
+      if (response.success && response.data) {
+        setVendorData(response.data);
+      } else {
+        showError('Failed to load vendor data');
+      }
+    } catch (error) {
+      console.error('Error fetching vendor data:', error);
+      showError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Fetch vendor data when screen comes into focus (e.g., after navigating back from other screens)
+  useFocusEffect(
+    useCallback(() => {
+      fetchVendorData();
+    }, [fetchVendorData])
+  );
 
   // Determine which cards to show based on businessType and field presence
   const isIndividual = vendorData?.businessType === 'Individual';
   const hasStaffField = vendorData?.staff !== undefined; // Check if staff field exists, regardless of items
-  const hasServicesField = vendorData?.services !== undefined; // Check if services field exists, regardless of items
-  const hasBankDetailsField = vendorData?.bankDetails !== undefined; // Check if bankDetails field exists, regardless of items
+  const servicesArray = vendorData?.services || []; // Get services array, default to empty array
+  const hasServices = servicesArray.length > 0; // Check if services array has items
+  // Check if bankDetails exists and has data (can be array or object)
+  const bankDetailsData = vendorData?.bankDetails;
+  const hasBankDetails = Array.isArray(bankDetailsData) 
+    ? bankDetailsData.length > 0 
+    : bankDetailsData !== undefined && Object.keys(bankDetailsData).length > 0; // Check if bankDetails object has properties
   const hasBusinessImages = vendorData?.businessImages !== undefined && (vendorData?.businessImages?.length ?? 0) > 0; // Check if businessImages field exists and has items
-  const hasBusinessDocument = vendorData?.businessDocument !== undefined && (vendorData?.businessDocument?.length ?? 0) > 0; // Check if businessDocument field exists and has items
+  const hasBusinessDocument = vendorData?.businessDocument !== undefined && 
+    (Array.isArray(vendorData.businessDocument) 
+      ? vendorData.businessDocument.length > 0 
+      : !!vendorData.businessDocument); // Check if businessDocument exists (can be string or array)
   const isBusinessVerified = hasBusinessImages && hasBusinessDocument; // Both images and documents are required
   const showTeamCard = !isIndividual && !hasStaffField; // Hide team card for Individual or if staff field exists
-  const showServicesCard = !hasServicesField; // Hide services card if services field exists
-  const showBankDetailsCard = !hasBankDetailsField; // Hide bank details card if bankDetails field exists
+  const showServicesCard = !hasServices; // Show services card if services array is empty
+  const showBankDetailsCard = !hasBankDetails; // Show bank details card if bankDetails array/object is empty
+  const showVerifyBusinessCard = !isBusinessVerified; // Show verify business card if business is not verified
+  
+  // Check if any completion card is visible
+  const hasAnyCardVisible = showTeamCard || showServicesCard || showBankDetailsCard || showVerifyBusinessCard;
+
+  // Calculate notification count based on rejection messages
+  // Only show notifications if the corresponding data is empty
+  const rejectionMessages: Array<{ type: 'service' | 'bank' | 'image' | 'document'; title: string; message: string }> = [];
+  
+  // Show service rejection only if services array is empty
+  if (vendorData?.serviceRejectMessage && !hasServices) {
+    rejectionMessages.push({
+      type: 'service',
+      title: 'Services Rejected',
+      message: vendorData.serviceRejectMessage,
+    });
+  }
+  
+  // Show bank rejection only if bank details is empty
+  if (vendorData?.bankRejectMessage && !hasBankDetails) {
+    rejectionMessages.push({
+      type: 'bank',
+      title: 'Bank Details Rejected',
+      message: vendorData.bankRejectMessage,
+    });
+  }
+  
+  // Show image rejection only if businessImages is empty
+  if (vendorData?.imageRejectMessage && !hasBusinessImages) {
+    rejectionMessages.push({
+      type: 'image',
+      title: 'Business Images Rejected',
+      message: vendorData.imageRejectMessage,
+    });
+  }
+  
+  // Show document rejection only if businessDocument is empty
+  if (vendorData?.documentRejectMessage && !hasBusinessDocument) {
+    rejectionMessages.push({
+      type: 'document',
+      title: 'Business Document Rejected',
+      message: vendorData.documentRejectMessage,
+    });
+  }
+
+  const notificationCount = rejectionMessages.length;
+
+  // Handle notification icon press
+  const handleNotificationPress = () => {
+    const rootNavigation = navigation.getParent()?.getParent();
+    if (rootNavigation) {
+      (rootNavigation as any).navigate('Notifications', {
+        rejectionMessages,
+      });
+    }
+  };
 
   // Format location text: "address, city"
   const locationText = vendorData
@@ -104,9 +172,20 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
             <Text style={styles.locationText}>{locationText}</Text>
           </View>
 
-          <View style={styles.notificationBadge}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleNotificationPress}
+            style={styles.notificationBadge}
+          >
             <NotificationIcon width={hs(18)} height={hs(18)} />
-          </View>
+            {notificationCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Business name & welcome text */}
@@ -124,24 +203,31 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
 
       {/* Store completion progress */}
       <View style={styles.progressSection}>
-        {/* Calculate progress: 25% for staff, 25% for services, 25% for bank details, 25% for business verification */}
-        <StoreCompletionProgress 
-          progress={
-            isBusinessVerified
-              ? 1.0 // 100% when business is verified (all 4 steps complete)
-              : hasStaffField && hasServicesField && hasBankDetailsField
-              ? 0.75
-              : hasStaffField && hasServicesField
-              ? 0.5
-              : hasStaffField && hasBankDetailsField
-              ? 0.5
-              : hasServicesField && hasBankDetailsField
-              ? 0.5
-              : hasStaffField || hasServicesField || hasBankDetailsField
-              ? 0.25
-              : 0
-          } 
-        />
+        {/* Calculate progress: 25% for each completed step (staff, services, bank details, business verification) */}
+        {/* Progress is based on card visibility: if card is NOT visible, step is complete */}
+        {(() => {
+          // Each step is worth 25% (0.25)
+          let completedSteps = 0;
+          
+          // Staff step complete if team card is NOT visible
+          if (!showTeamCard) completedSteps += 1;
+          
+          // Services step complete if services card is NOT visible
+          if (!showServicesCard) completedSteps += 1;
+          
+          // Bank details step complete if bank details card is NOT visible
+          if (!showBankDetailsCard) completedSteps += 1;
+          
+          // Business verification step complete if verify business card is NOT visible (i.e., business is verified)
+          if (!showVerifyBusinessCard) completedSteps += 1;
+          
+          // Calculate progress: completedSteps / 4 (4 total steps)
+          const progress = completedSteps / 4;
+          
+          return (
+            <StoreCompletionProgress progress={progress} />
+          );
+        })()}
         
         {/* Conditionally render team card only for Storefront/Franchise and when staff field doesn't exist */}
         {showTeamCard && (
@@ -154,7 +240,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           />
         )}
         
-        {/* Services card - hide if services field exists, otherwise show (active for Individual or when staff field exists) */}
+        {/* Services card - show if services array is empty (active for Individual or when staff field exists) */}
         {showServicesCard && (
           <VerifyCompletionCard
             title="Add your services"
@@ -171,14 +257,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           />
         )}
         
-        {/* Bank details card - hide if bankDetails field exists, otherwise show (active when services field exists) */}
+        {/* Bank details card - show if bankDetails array/object is empty (active when services are complete) */}
         {showBankDetailsCard && (
           <VerifyCompletionCard
             title="Add bank details"
             description="Receive payments seamlessly."
             icon={BankVerifyIcon}
             style={styles.cardSpacing}
-            disabled={!hasServicesField}
+            disabled={!hasServices}
             onPress={() =>
               navigation
                 .getParent()
@@ -188,8 +274,24 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
           />
         )}
         
-        {/* Show Lottie animation if business is verified */}
-        {isBusinessVerified ? (
+        {/* Show verify business card if business is not verified */}
+        {showVerifyBusinessCard && (
+          <VerifyCompletionCard
+            title="Verify your business"
+            description="Increase trust with customers."
+            icon={BusinessVerifyIcon}
+            disabled={!hasBankDetails}
+            onPress={() =>
+              navigation
+                .getParent()
+                ?.getParent()
+                ?.navigate('VerifyBusiness' as never)
+            }
+          />
+        )}
+        
+        {/* Show Lottie animation only if business is verified AND no cards are visible */}
+        {isBusinessVerified && !hasAnyCardVisible && (
           <View style={styles.verifiedSection}>
             <View>
               <View style={styles.lottieContainer}>
@@ -210,19 +312,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
               <Text style={styles.footerArrow}>→</Text>
             </View>
           </View>
-        ) : (
-          <VerifyCompletionCard
-            title="Verify your business"
-            description="Increase trust with customers."
-            icon={BusinessVerifyIcon}
-            disabled={!hasBankDetailsField}
-            onPress={() =>
-              navigation
-                .getParent()
-                ?.getParent()
-                ?.navigate('VerifyBusiness' as never)
-            }
-          />
         )}
       </View>
       </ScrollView>
@@ -269,6 +358,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#4D4D4D',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -vs(4),
+    right: -hs(4),
+    backgroundColor: colors.status.error,
+    borderRadius: ms(10),
+    minWidth: ms(20),
+    height: ms(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: hs(4),
+    borderWidth: 2,
+    borderColor: colors.background.white,
+  },
+  badgeText: {
+    ...typography.caption,
+    color: colors.text.white,
+    fontSize: ms(10),
+    fontWeight: '700',
   },
   headerTextBlock: {
     marginBottom: vs(12),

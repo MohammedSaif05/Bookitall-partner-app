@@ -42,6 +42,7 @@ export type RootStackParamList = {
   AddService: { service?: Service } | undefined;
   AddBankDetails: undefined;
   VerifyBusiness: undefined;
+  Notifications: { rejectionMessages?: Array<{ type: 'service' | 'bank' | 'image' | 'document'; title: string; message: string }> } | undefined;
 };
 
 /**
