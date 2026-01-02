@@ -79,7 +79,6 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
     breakIndex?: number;
     day?: Day;
   }>({ visible: false, type: 'start' });
-  const [timePickerValue, setTimePickerValue] = useState<{ hour: number; minute: number }>({ hour: 8, minute: 0 });
   const [timeInput, setTimeInput] = useState<{ hour: string; minute: string; period: 'AM' | 'PM' }>({ 
     hour: '08', 
     minute: '00', 
@@ -313,7 +312,6 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
       }
     }
 
-    setTimePickerValue({ hour: currentHour, minute: currentMinute });
     // Convert to 12-hour format for input
     const displayHour = currentHour === 0 ? 12 : currentHour > 12 ? currentHour - 12 : currentHour;
     const period = currentHour >= 12 ? 'PM' : 'AM';
@@ -366,7 +364,6 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
   const handleTimeSelect = () => {
     // Convert input to 24-hour format
     const { hour, minute } = convertTo24Hour(timeInput.hour, timeInput.minute, timeInput.period);
-    setTimePickerValue({ hour, minute });
     
     // Check if this is for day-wise timings
     if (showTimePicker.day) {
@@ -657,7 +654,6 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
       }
     }
 
-    setTimePickerValue({ hour: currentHour, minute: currentMinute });
     // Convert to 12-hour format for input
     const displayHour = currentHour === 0 ? 12 : currentHour > 12 ? currentHour - 12 : currentHour;
     const period = currentHour >= 12 ? 'PM' : 'AM';
@@ -672,7 +668,6 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
   const handleDayTimeSelect = () => {
     // Convert input to 24-hour format
     const { hour, minute } = convertTo24Hour(timeInput.hour, timeInput.minute, timeInput.period);
-    setTimePickerValue({ hour, minute });
     const formattedTime = formatTime(hour, minute);
     const day = showTimePicker.day;
     

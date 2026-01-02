@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,7 +33,7 @@ import InfoIcon from '../../assets/svg/icons/info.svg';
 import UploadDocumentIcon from '../../assets/svg/icons/upload_document.svg';
 import { PageIndicators, OnboardingCTAButton, OnboardingDropdownField } from '../../components/onboarding';
 import type { RootStackScreenProps } from '../../navigation/types';
-import { vendorService, type StaffMember } from '../../services/api/vendor.service';
+import { vendorService, type StaffMember, type VendorData } from '../../services/api/vendor.service';
 import { userStorage } from '../../utils/storage';
 import { showError, showSuccess } from '../../utils/flashMessage';
 import type { CustomAxiosError } from '../../types/api';
@@ -52,6 +52,9 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   const [description, setDescription] = useState(editService?.description || '');
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [showCategoryTooltip, setShowCategoryTooltip] = useState(false);
+  const [showBufferTimeTooltip, setShowBufferTimeTooltip] = useState(false);
+  const [showMaxCustomersTooltip, setShowMaxCustomersTooltip] = useState(false);
+  const [showApplicableToTooltip, setShowApplicableToTooltip] = useState(false);
   const [price, setPrice] = useState(editService?.serviceCost.toString() || '');
   
   // Handle duration - check if it's in predefined list, otherwise use Custom
@@ -102,8 +105,34 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   const [isActive] = useState<boolean>(editService?.isActive ?? true);
   // const [galleryImages, setGalleryImages] = useState<string[]>([]); // Will be used for gallery images
   const [savingService, setSavingService] = useState(false);
+  const [vendorData, setVendorData] = useState<VendorData | null>(null);
 
   const DESCRIPTION_MAX_LENGTH = 200;
+
+  // Fetch vendor data to check business category
+  useEffect(() => {
+    const fetchVendorData = async () => {
+      try {
+        const userId = await userStorage.getUserId();
+        if (userId) {
+          const response = await vendorService.getVendorByUserId(userId);
+          if (response.success && response.data) {
+            setVendorData(response.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching vendor data:', error);
+      }
+    };
+    fetchVendorData();
+  }, []);
+
+  // Check if staff assignment should be hidden based on business category
+  const shouldHideStaffAssignment = () => {
+    if (!vendorData?.businessCategory) return false;
+    const businessCategory = vendorData.businessCategory.toLowerCase();
+    return businessCategory === 'turf' || businessCategory === 'swimming pool';
+  };
 
   const isDetailsStepValid = serviceName.trim().length > 0 && !!category;
   const isPricingStepValid = price.trim().length > 0;
@@ -500,7 +529,13 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.container}>
+        <TouchableWithoutFeedback onPress={() => {
+          setShowCategoryTooltip(false);
+          setShowBufferTimeTooltip(false);
+          setShowMaxCustomersTooltip(false);
+          setShowApplicableToTooltip(false);
+        }}>
+          <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
@@ -518,13 +553,18 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
 
             {/* Content */}
             <View style={styles.content}>
-              <TouchableWithoutFeedback onPress={() => setShowCategoryTooltip(false)}>
-                <ScrollView
-                  contentContainerStyle={styles.scrollContent}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                  keyboardDismissMode="on-drag"
-                >
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                onScrollBeginDrag={() => {
+                  setShowCategoryTooltip(false);
+                  setShowBufferTimeTooltip(false);
+                  setShowMaxCustomersTooltip(false);
+                  setShowApplicableToTooltip(false);
+                }}
+              >
                 {step === 0 ? (
                   <>
                     <Text style={styles.sectionTitle}>Service Details</Text>
@@ -661,9 +701,27 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                     )}
 
                     {/* Buffer time */}
-                    <View style={styles.bufferHeaderRow}>
-                      <Text style={styles.fieldLabel}>Buffer time</Text>
-                      <InfoIcon width={hs(16)} height={hs(16)} />
+                    <View style={styles.bufferHeaderRowContainer}>
+                      <View style={styles.bufferHeaderRow}>
+                        <Text style={styles.fieldLabel}>Buffer time</Text>
+                        <TouchableOpacity
+                          onPress={() => setShowBufferTimeTooltip((prev) => !prev)}
+                          activeOpacity={0.8}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <InfoIcon width={hs(18)} height={hs(18)} stroke={colors.text.primary} />
+                        </TouchableOpacity>
+                      </View>
+                      {showBufferTimeTooltip && (
+                        <View style={styles.tooltipWrapper}>
+                          <View style={styles.tooltipBubble}>
+                            <Text style={styles.tooltipText}>
+                              Extra time between appointments to prepare for the next customer
+                            </Text>
+                          </View>
+                          <View style={styles.tooltipArrow} />
+                        </View>
+                      )}
                     </View>
 
                     <View style={styles.chipRow}>
@@ -713,68 +771,72 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                       </View>
                     )}
 
-                    <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
+                    {!shouldHideStaffAssignment() && (
+                      <>
+                        <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
 
-                    {/* Staff Assignment */}
-                    <Text style={styles.sectionTitle}>Staff Assignment</Text>
+                        {/* Staff Assignment */}
+                        <Text style={styles.sectionTitle}>Staff Assignment</Text>
 
-                    <View style={styles.assignRow}>
-                      <Text style={styles.fieldLabel}>Assign all available staff</Text>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        style={[
-                          styles.toggle,
-                          assignAllStaff && styles.toggleActive,
-                        ]}
-                        onPress={async () => {
-                          const newValue = !assignAllStaff;
-                          setAssignAllStaff(newValue);
-                          
-                          if (newValue) {
-                            // Fetch staff when toggle is turned on
-                            try {
-                              const userId = await userStorage.getUserId();
-                              if (userId) {
-                                const response = await vendorService.getStaff(userId);
-                                if (response.success && response.data) {
-                                  const activeStaff = response.data.filter(staff => staff.isActive);
-                                  setStaffList(activeStaff);
-                                  setSelectedStaff(activeStaff.map((staff) => staff.name));
+                        <View style={styles.assignRow}>
+                          <Text style={styles.fieldLabel}>Assign all available staff</Text>
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            style={[
+                              styles.toggle,
+                              assignAllStaff && styles.toggleActive,
+                            ]}
+                            onPress={async () => {
+                              const newValue = !assignAllStaff;
+                              setAssignAllStaff(newValue);
+                              
+                              if (newValue) {
+                                // Fetch staff when toggle is turned on
+                                try {
+                                  const userId = await userStorage.getUserId();
+                                  if (userId) {
+                                    const response = await vendorService.getStaff(userId);
+                                    if (response.success && response.data) {
+                                      const activeStaff = response.data.filter(staff => staff.isActive);
+                                      setStaffList(activeStaff);
+                                      setSelectedStaff(activeStaff.map((staff) => staff.name));
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.error('Error fetching staff:', error);
+                                  showError('Failed to load staff list');
                                 }
+                              } else {
+                                // Clear selection when toggle is turned off
+                                setSelectedStaff([]);
                               }
-                            } catch (error) {
-                              console.error('Error fetching staff:', error);
-                              showError('Failed to load staff list');
-                            }
-                          } else {
-                            // Clear selection when toggle is turned off
-                            setSelectedStaff([]);
-                          }
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.toggleThumb,
-                            assignAllStaff && styles.toggleThumbActive,
-                          ]}
-                        />
-                      </TouchableOpacity>
-                    </View>
+                            }}
+                          >
+                            <View
+                              style={[
+                                styles.toggleThumb,
+                                assignAllStaff && styles.toggleThumbActive,
+                              ]}
+                            />
+                          </TouchableOpacity>
+                        </View>
 
-                    <View style={styles.fieldGroup}>
-                      <Text style={[styles.fieldLabel, styles.fieldLabelNoMargin]}>
-                        Manual selection
-                      </Text>
-                      <View style={styles.dropdownWrapper}>
-                        <OnboardingDropdownField
-                          label=""
-                          placeholder="Select staffs"
-                          value={getStaffDisplayText()}
-                          onPress={handleStaffModalOpen}
-                          marginBottom={0}
-                        />
-                      </View>
-                    </View>
+                        <View style={styles.fieldGroup}>
+                          <Text style={[styles.fieldLabel, styles.fieldLabelNoMargin]}>
+                            Manual selection
+                          </Text>
+                          <View style={styles.dropdownWrapper}>
+                            <OnboardingDropdownField
+                              label=""
+                              placeholder="Select staffs"
+                              value={getStaffDisplayText()}
+                              onPress={handleStaffModalOpen}
+                              marginBottom={0}
+                            />
+                          </View>
+                        </View>
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -788,8 +850,14 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                         placeholder="Select"
                         required
                         showInfoIcon
+                        onInfoPress={() => setShowMaxCustomersTooltip((prev) => !prev)}
+                        showTooltip={showMaxCustomersTooltip}
+                        tooltipText="Maximum number of customers that can book this service in a single time slot"
                         value={maxCustomers}
-                        onPress={() => setIsMaxCustomersModalVisible(true)}
+                        onPress={() => {
+                          setShowMaxCustomersTooltip(false);
+                          setIsMaxCustomersModalVisible(true);
+                        }}
                         marginBottom={0}
                       />
                     </View>
@@ -801,8 +869,14 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                         placeholder="Select"
                         required
                         showInfoIcon
+                        onInfoPress={() => setShowApplicableToTooltip((prev) => !prev)}
+                        showTooltip={showApplicableToTooltip}
+                        tooltipText="Select the gender this service is available for"
                         value={applicableTo}
-                        onPress={() => setIsApplicableToModalVisible(true)}
+                        onPress={() => {
+                          setShowApplicableToTooltip(false);
+                          setIsApplicableToModalVisible(true);
+                        }}
                         marginBottom={0}
                       />
                     </View>
@@ -842,8 +916,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                     </TouchableOpacity>
                   </>
                 )}
-                </ScrollView>
-              </TouchableWithoutFeedback>
+              </ScrollView>
             </View>
 
             {/* Footer Buttons */}
@@ -873,6 +946,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
               />
             </View>
           </View>
+        </TouchableWithoutFeedback>
 
           {/* Category selection bottom sheet (same pattern as onboarding) */}
           <Modal
@@ -1107,7 +1181,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
               </View>
             </View>
           </Modal>
-        </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -1279,11 +1353,47 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: colors.text.white,
   },
+  bufferHeaderRowContainer: {
+    position: 'relative',
+    marginBottom: vs(12),
+  },
   bufferHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: vs(12),
+  },
+  tooltipWrapper: {
+    position: 'absolute',
+    top: vs(28),
+    right: 0,
+    alignItems: 'flex-end',
+    zIndex: 1000,
+    elevation: 10,
+  },
+  tooltipBubble: {
+    paddingVertical: vs(8),
+    paddingHorizontal: ms(12),
+    backgroundColor: colors.button.primary,
+    borderRadius: ms(12),
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  tooltipArrow: {
+    position: 'absolute',
+    top: -ms(6),
+    right: ms(10),
+    width: ms(12),
+    height: ms(12),
+    backgroundColor: colors.button.primary,
+    transform: [{ rotate: '45deg' }],
+    borderRadius: ms(2),
+  },
+  tooltipText: {
+    ...typography.bodySmall,
+    color: colors.text.white,
   },
   assignRow: {
     flexDirection: 'row',

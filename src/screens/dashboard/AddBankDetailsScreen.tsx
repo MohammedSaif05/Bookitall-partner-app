@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, TextInput, Modal, ActivityIndicator, ScrollView, TouchableWithoutFeedback } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
@@ -27,6 +27,8 @@ const AddBankDetailsScreen: React.FC<AddBankDetailsScreenProps> = ({ navigation 
   const [ifscCode, setIfscCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [showAccountNumberTooltip, setShowAccountNumberTooltip] = useState(false);
+  const [showIfscCodeTooltip, setShowIfscCodeTooltip] = useState(false);
 
   useEffect(() => {
     const loadUserId = async () => {
@@ -89,107 +91,148 @@ const AddBankDetailsScreen: React.FC<AddBankDetailsScreenProps> = ({ navigation 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-              activeOpacity={0.7}
+        <TouchableWithoutFeedback onPress={() => {
+          setShowAccountNumberTooltip(false);
+          setShowIfscCodeTooltip(false);
+        }}>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={styles.backButton}
+                activeOpacity={0.7}
+              >
+                <BackIcon width={hs(24)} height={vs(24)} />
+              </TouchableOpacity>
+              <Text style={styles.title} numberOfLines={1}>
+                Bank Details
+              </Text>
+            </View>
+
+            {/* Main Content */}
+            <ScrollView
+              style={styles.content}
+              contentContainerStyle={styles.contentContainer}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              onScrollBeginDrag={() => {
+                setShowAccountNumberTooltip(false);
+                setShowIfscCodeTooltip(false);
+              }}
             >
-              <BackIcon width={hs(24)} height={vs(24)} />
-            </TouchableOpacity>
-            <Text style={styles.title} numberOfLines={1}>
-              Bank Details
-            </Text>
-          </View>
-
-          {/* Main Content */}
-          <View style={styles.content}>
-            {/* Account Holder Name */}
-            <View style={styles.fieldContainer}>
-              <View style={styles.labelRow}>
-                <Text style={styles.fieldLabel}>
-                  Account Holder Name<Text style={styles.asterisk}> *</Text>
-                </Text>
+              {/* Account Holder Name */}
+              <View style={styles.fieldContainer}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.fieldLabel}>
+                    Account Holder Name<Text style={styles.asterisk}> *</Text>
+                  </Text>
+                </View>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={accountHolderName}
+                  onChangeText={setAccountHolderName}
+                  placeholder="Enter Name"
+                  placeholderTextColor={colors.text.secondary}
+                  autoCapitalize="words"
+                />
               </View>
-              <TextInput
-                style={styles.fieldInput}
-                value={accountHolderName}
-                onChangeText={setAccountHolderName}
-                placeholder="Enter Name"
-                placeholderTextColor={colors.text.secondary}
-                autoCapitalize="words"
+
+              {/* Account Number */}
+              <View style={styles.fieldContainer}>
+                <View style={styles.labelRowContainer}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.fieldLabel}>
+                      Account Number<Text style={styles.asterisk}> *</Text>
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowAccountNumberTooltip((prev) => !prev)}
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <InfoIcon width={ms(18)} height={ms(18)} stroke={colors.text.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  {showAccountNumberTooltip && (
+                    <View style={styles.tooltipWrapper}>
+                      <View style={styles.tooltipBubble}>
+                        <Text style={styles.tooltipText}>
+                          Enter your bank account number as it appears on your bank statement
+                        </Text>
+                      </View>
+                      <View style={styles.tooltipArrow} />
+                    </View>
+                  )}
+                </View>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={accountNumber}
+                  onChangeText={setAccountNumber}
+                  placeholder="Enter account number"
+                  placeholderTextColor={colors.text.secondary}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {/* IFSC Code */}
+              <View style={styles.fieldContainer}>
+                <View style={styles.labelRowContainer}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.fieldLabel}>
+                      IFSC Code<Text style={styles.asterisk}> *</Text>
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowIfscCodeTooltip((prev) => !prev)}
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <InfoIcon width={ms(18)} height={ms(18)} stroke={colors.text.primary} />
+                    </TouchableOpacity>
+                  </View>
+                  {showIfscCodeTooltip && (
+                    <View style={styles.tooltipWrapper}>
+                      <View style={styles.tooltipBubble}>
+                        <Text style={styles.tooltipText}>
+                          Indian Financial System Code - 11 characters found on your cheque book or bank statement
+                        </Text>
+                      </View>
+                      <View style={styles.tooltipArrow} />
+                    </View>
+                  )}
+                </View>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={ifscCode}
+                  onChangeText={(text) => setIfscCode(text.toUpperCase())}
+                  placeholder="Enter IFSC code"
+                  placeholderTextColor={colors.text.secondary}
+                  autoCapitalize="characters"
+                  maxLength={11}
+                />
+              </View>
+            </ScrollView>
+
+            {/* Footer Buttons */}
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                activeOpacity={0.8}
+                onPress={handleCancel}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <OnboardingCTAButton
+                label={loading ? 'Saving...' : 'Save'}
+                onPress={handleSave}
+                disabled={!isFormComplete || loading}
+                loading={loading}
+                style={styles.saveButton}
               />
             </View>
-
-            {/* Account Number */}
-            <View style={styles.fieldContainer}>
-              <View style={styles.labelRow}>
-                <Text style={styles.fieldLabel}>
-                  Account Number<Text style={styles.asterisk}> *</Text>
-                </Text>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <InfoIcon width={ms(18)} height={ms(18)} stroke={colors.text.primary} />
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={styles.fieldInput}
-                value={accountNumber}
-                onChangeText={setAccountNumber}
-                placeholder="Enter account number"
-                placeholderTextColor={colors.text.secondary}
-                keyboardType="numeric"
-              />
-            </View>
-
-            {/* IFSC Code */}
-            <View style={styles.fieldContainer}>
-              <View style={styles.labelRow}>
-                <Text style={styles.fieldLabel}>
-                  IFSC Code<Text style={styles.asterisk}> *</Text>
-                </Text>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <InfoIcon width={ms(18)} height={ms(18)} stroke={colors.text.primary} />
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={styles.fieldInput}
-                value={ifscCode}
-                onChangeText={(text) => setIfscCode(text.toUpperCase())}
-                placeholder="Enter IFSC code"
-                placeholderTextColor={colors.text.secondary}
-                autoCapitalize="characters"
-                maxLength={11}
-              />
-            </View>
           </View>
-
-          {/* Footer Buttons */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              activeOpacity={0.8}
-              onPress={handleCancel}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-
-            <OnboardingCTAButton
-              label={loading ? 'Saving...' : 'Save'}
-              onPress={handleSave}
-              disabled={!isFormComplete || loading}
-              loading={loading}
-              style={styles.saveButton}
-            />
-          </View>
-        </View>
+        </TouchableWithoutFeedback>
 
         {/* Loading Overlay */}
         <Modal
@@ -244,17 +287,23 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: hs(16),
     paddingTop: vs(24),
+    paddingBottom: vs(24),
   },
   fieldContainer: {
     marginBottom: vs(24),
+  },
+  labelRowContainer: {
+    position: 'relative',
+    marginBottom: vs(8),
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: vs(8),
   },
   fieldLabel: {
     ...typography.label,
@@ -317,6 +366,40 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginTop: vs(16),
     textAlign: 'center',
+  },
+  tooltipWrapper: {
+    position: 'absolute',
+    top: vs(28),
+    right: 0,
+    alignItems: 'flex-end',
+    zIndex: 1000,
+    elevation: 10,
+  },
+  tooltipBubble: {
+    paddingVertical: vs(8),
+    paddingHorizontal: ms(12),
+    backgroundColor: colors.button.primary,
+    borderRadius: ms(12),
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    maxWidth: hs(280),
+  },
+  tooltipArrow: {
+    position: 'absolute',
+    top: -ms(6),
+    right: ms(10),
+    width: ms(12),
+    height: ms(12),
+    backgroundColor: colors.button.primary,
+    transform: [{ rotate: '45deg' }],
+    borderRadius: ms(2),
+  },
+  tooltipText: {
+    ...typography.bodySmall,
+    color: colors.text.white,
   },
 });
 
