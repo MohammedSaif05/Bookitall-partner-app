@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Keyboard,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { AuthStackScreenProps } from '../../navigation/types';
@@ -79,6 +80,13 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
     day?: Day;
   }>({ visible: false, type: 'start' });
   const [timePickerValue, setTimePickerValue] = useState<{ hour: number; minute: number }>({ hour: 8, minute: 0 });
+  const [timeInput, setTimeInput] = useState<{ hour: string; minute: string; period: 'AM' | 'PM' }>({ 
+    hour: '08', 
+    minute: '00', 
+    period: 'AM' 
+  });
+  const hourInputRef = useRef<TextInput>(null);
+  const minuteInputRef = useRef<TextInput>(null);
   const [errors, setErrors] = useState<{
     workingDays?: string;
     startTime?: string;
@@ -306,17 +314,68 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
     }
 
     setTimePickerValue({ hour: currentHour, minute: currentMinute });
+    // Convert to 12-hour format for input
+    const displayHour = currentHour === 0 ? 12 : currentHour > 12 ? currentHour - 12 : currentHour;
+    const period = currentHour >= 12 ? 'PM' : 'AM';
+    setTimeInput({
+      hour: displayHour.toString().padStart(2, '0'),
+      minute: currentMinute.toString().padStart(2, '0'),
+      period,
+    });
     setShowTimePicker({ visible: true, type, breakIndex });
   };
 
+  // Handle time input changes
+  const handleHourChange = (text: string) => {
+    // Only allow numbers, max 2 digits, range 1-12
+    const numericText = text.replace(/[^0-9]/g, '').slice(0, 2);
+    if (numericText === '' || (parseInt(numericText, 10) >= 1 && parseInt(numericText, 10) <= 12)) {
+      setTimeInput(prev => ({ ...prev, hour: numericText }));
+    }
+  };
+
+  const handleMinuteChange = (text: string) => {
+    // Only allow numbers, max 2 digits, range 0-59
+    const numericText = text.replace(/[^0-9]/g, '').slice(0, 2);
+    if (numericText === '' || (parseInt(numericText, 10) >= 0 && parseInt(numericText, 10) <= 59)) {
+      setTimeInput(prev => ({ ...prev, minute: numericText }));
+    }
+  };
+
+  const handlePeriodToggle = () => {
+    setTimeInput(prev => ({ 
+      ...prev, 
+      period: prev.period === 'AM' ? 'PM' : 'AM' 
+    }));
+  };
+
+  // Convert input values to 24-hour format
+  const convertTo24Hour = (hour: string, minute: string, period: 'AM' | 'PM'): { hour: number; minute: number } => {
+    let h = parseInt(hour, 10) || 12;
+    const m = parseInt(minute, 10) || 0;
+    
+    if (period === 'PM' && h !== 12) {
+      h += 12;
+    } else if (period === 'AM' && h === 12) {
+      h = 0;
+    }
+    
+    return { hour: h, minute: m };
+  };
+
   const handleTimeSelect = () => {
+    // Convert input to 24-hour format
+    const { hour, minute } = convertTo24Hour(timeInput.hour, timeInput.minute, timeInput.period);
+    setTimePickerValue({ hour, minute });
+    
     // Check if this is for day-wise timings
     if (showTimePicker.day) {
       handleDayTimeSelect();
       return;
     }
 
-    const formattedTime = formatTime(timePickerValue.hour, timePickerValue.minute);
+    // Use the newly converted hour and minute values, not timePickerValue (which may be stale)
+    const formattedTime = formatTime(hour, minute);
     
     if (showTimePicker.type === 'start') {
       setStartTime(formattedTime);
@@ -599,11 +658,22 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
     }
 
     setTimePickerValue({ hour: currentHour, minute: currentMinute });
+    // Convert to 12-hour format for input
+    const displayHour = currentHour === 0 ? 12 : currentHour > 12 ? currentHour - 12 : currentHour;
+    const period = currentHour >= 12 ? 'PM' : 'AM';
+    setTimeInput({
+      hour: displayHour.toString().padStart(2, '0'),
+      minute: currentMinute.toString().padStart(2, '0'),
+      period,
+    });
     setShowTimePicker({ visible: true, type, breakIndex, day });
   };
 
   const handleDayTimeSelect = () => {
-    const formattedTime = formatTime(timePickerValue.hour, timePickerValue.minute);
+    // Convert input to 24-hour format
+    const { hour, minute } = convertTo24Hour(timeInput.hour, timeInput.minute, timeInput.period);
+    setTimePickerValue({ hour, minute });
+    const formattedTime = formatTime(hour, minute);
     const day = showTimePicker.day;
     
     if (!day) return;
@@ -1904,105 +1974,72 @@ const OperatingHours: React.FC<OperatingHoursProps> = ({ navigation }) => {
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Select Time</Text>
                 <View style={styles.timePickerContainer}>
-                  <View style={styles.timePickerRow}>
-                    <TouchableOpacity
-                      style={styles.timePickerButton}
-                      onPress={() => {
-                        // Decrease hour in 12-hour format
-                        const current12Hour = timePickerValue.hour === 0 ? 12 : timePickerValue.hour > 12 ? timePickerValue.hour - 12 : timePickerValue.hour;
-                        const isPM = timePickerValue.hour >= 12;
-                        let new12Hour = current12Hour - 1;
-                        if (new12Hour < 1) new12Hour = 12;
-                        const newHour = isPM ? (new12Hour === 12 ? 12 : new12Hour + 12) : (new12Hour === 12 ? 0 : new12Hour);
-                        setTimePickerValue({ ...timePickerValue, hour: newHour });
+                  {/* Hour Input */}
+                  <View style={styles.timeInputWrapper}>
+                    <Text style={styles.timeInputLabel}>Hour</Text>
+                    <TextInput
+                      ref={hourInputRef}
+                      style={styles.timeInput}
+                      value={timeInput.hour}
+                      onChangeText={handleHourChange}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      placeholder="08"
+                      placeholderTextColor={colors.text.tertiary}
+                      selectTextOnFocus
+                      onBlur={() => {
+                        // Auto-format: pad with 0 if single digit
+                        if (timeInput.hour.length === 1) {
+                          setTimeInput(prev => ({ ...prev, hour: prev.hour.padStart(2, '0') }));
+                        }
+                        // Validate range
+                        const hourNum = parseInt(timeInput.hour, 10);
+                        if (isNaN(hourNum) || hourNum < 1 || hourNum > 12) {
+                          setTimeInput(prev => ({ ...prev, hour: '08' }));
+                        }
                       }}
-                    >
-                      <Text style={styles.timePickerButtonText}>↑</Text>
-                    </TouchableOpacity>
-                    <View style={styles.timePickerValueContainer}>
-                      <Text style={styles.timePickerValue}>
-                        {(() => {
-                          const displayHour = timePickerValue.hour === 0 ? 12 : timePickerValue.hour > 12 ? timePickerValue.hour - 12 : timePickerValue.hour;
-                          return displayHour.toString().padStart(2, '0');
-                        })()}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.timePickerButton}
-                      onPress={() => {
-                        // Increase hour in 12-hour format
-                        const current12Hour = timePickerValue.hour === 0 ? 12 : timePickerValue.hour > 12 ? timePickerValue.hour - 12 : timePickerValue.hour;
-                        const isPM = timePickerValue.hour >= 12;
-                        let new12Hour = current12Hour + 1;
-                        if (new12Hour > 12) new12Hour = 1;
-                        const newHour = isPM ? (new12Hour === 12 ? 12 : new12Hour + 12) : (new12Hour === 12 ? 0 : new12Hour);
-                        setTimePickerValue({ ...timePickerValue, hour: newHour });
-                      }}
-                    >
-                      <Text style={styles.timePickerButtonText}>↓</Text>
-                    </TouchableOpacity>
+                    />
                   </View>
+
+                  {/* Separator */}
                   <Text style={styles.timePickerSeparator}>:</Text>
-                  <View style={styles.timePickerRow}>
-                    <TouchableOpacity
-                      style={styles.timePickerButton}
-                      onPress={() => {
-                        const newMinute = timePickerValue.minute === 0 ? 59 : timePickerValue.minute - 1;
-                        setTimePickerValue({ ...timePickerValue, minute: newMinute });
+
+                  {/* Minute Input */}
+                  <View style={styles.timeInputWrapper}>
+                    <Text style={styles.timeInputLabel}>Minute</Text>
+                    <TextInput
+                      ref={minuteInputRef}
+                      style={styles.timeInput}
+                      value={timeInput.minute}
+                      onChangeText={handleMinuteChange}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      placeholder="00"
+                      placeholderTextColor={colors.text.tertiary}
+                      selectTextOnFocus
+                      onBlur={() => {
+                        // Auto-format: pad with 0 if single digit
+                        if (timeInput.minute.length === 1) {
+                          setTimeInput(prev => ({ ...prev, minute: prev.minute.padStart(2, '0') }));
+                        }
+                        // Validate range
+                        const minuteNum = parseInt(timeInput.minute, 10);
+                        if (isNaN(minuteNum) || minuteNum < 0 || minuteNum > 59) {
+                          setTimeInput(prev => ({ ...prev, minute: '00' }));
+                        }
                       }}
-                    >
-                      <Text style={styles.timePickerButtonText}>↑</Text>
-                    </TouchableOpacity>
-                    <View style={styles.timePickerValueContainer}>
-                      <Text style={styles.timePickerValue}>
-                        {timePickerValue.minute.toString().padStart(2, '0')}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.timePickerButton}
-                      onPress={() => {
-                        const newMinute = timePickerValue.minute === 59 ? 0 : timePickerValue.minute + 1;
-                        setTimePickerValue({ ...timePickerValue, minute: newMinute });
-                      }}
-                    >
-                      <Text style={styles.timePickerButtonText}>↓</Text>
-                    </TouchableOpacity>
+                    />
                   </View>
-                  <View style={styles.timePickerRow}>
+
+                  {/* AM/PM Toggle */}
+                  <View style={styles.timeInputWrapper}>
+                    <Text style={styles.timeInputLabel}>Period</Text>
                     <TouchableOpacity
-                      style={styles.timePickerButton}
-                      onPress={() => {
-                        let newHour = timePickerValue.hour;
-                        // Toggle AM/PM
-                        if (newHour >= 12) {
-                          newHour -= 12;
-                        } else {
-                          newHour += 12;
-                        }
-                        setTimePickerValue({ ...timePickerValue, hour: newHour });
-                      }}
+                      style={styles.periodToggle}
+                      onPress={handlePeriodToggle}
+                      activeOpacity={0.8}
                     >
-                      <Text style={styles.timePickerButtonText}>↑</Text>
-                    </TouchableOpacity>
-                    <View style={styles.timePickerValueContainer}>
-                      <Text style={styles.timePickerValue}>
-                        {timePickerValue.hour >= 12 ? 'PM' : 'AM'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.timePickerButton}
-                      onPress={() => {
-                        let newHour = timePickerValue.hour;
-                        // Toggle AM/PM
-                        if (newHour >= 12) {
-                          newHour -= 12;
-                        } else {
-                          newHour += 12;
-                        }
-                        setTimePickerValue({ ...timePickerValue, hour: newHour });
-                      }}
-                    >
-                      <Text style={styles.timePickerButtonText}>↓</Text>
+                      <Text style={styles.periodToggleText}>{timeInput.period}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2341,42 +2378,56 @@ const styles = StyleSheet.create({
   },
   timePickerContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'center',
     marginVertical: vs(24),
-    gap: hs(16),
+    gap: hs(12),
   },
-  timePickerRow: {
+  timeInputWrapper: {
     alignItems: 'center',
     gap: vs(8),
   },
-  timePickerButton: {
-    width: ms(40),
-    height: ms(40),
-    borderRadius: ms(8),
-    backgroundColor: colors.background.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  timeInputLabel: {
+    ...typography.label,
+    color: colors.text.secondary,
+    fontSize: ms(12),
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  timePickerButtonText: {
+  timeInput: {
     ...typography.display,
     color: colors.text.primary,
-    fontSize: ms(20),
-  },
-  timePickerValueContainer: {
-    minWidth: ms(50),
-    alignItems: 'center',
-  },
-  timePickerValue: {
-    ...typography.display,
-    color: colors.text.primary,
-    fontSize: ms(24),
+    fontSize: ms(32),
     fontWeight: '700',
+    textAlign: 'center',
+    minWidth: ms(70),
+    paddingVertical: vs(12),
+    paddingHorizontal: hs(16),
+    borderRadius: ms(12),
+    backgroundColor: colors.background.primary,
+    borderWidth: 2,
+    borderColor: colors.border.light,
   },
   timePickerSeparator: {
     ...typography.display,
     color: colors.text.primary,
-    fontSize: ms(24),
+    fontSize: ms(32),
+    fontWeight: '700',
+    marginBottom: vs(20),
+  },
+  periodToggle: {
+    minWidth: ms(70),
+    paddingVertical: vs(12),
+    paddingHorizontal: hs(16),
+    borderRadius: ms(12),
+    backgroundColor: colors.text.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodToggleText: {
+    ...typography.display,
+    color: colors.text.white,
+    fontSize: ms(18),
     fontWeight: '700',
   },
   modalButtons: {

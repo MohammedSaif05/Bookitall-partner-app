@@ -21,6 +21,7 @@ import {
   Dimensions,
   PermissionsAndroid,
   Alert,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -50,6 +51,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   const [category, setCategory] = useState<string | undefined>(editService?.category || undefined);
   const [description, setDescription] = useState(editService?.description || '');
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+  const [showCategoryTooltip, setShowCategoryTooltip] = useState(false);
   const [price, setPrice] = useState(editService?.serviceCost.toString() || '');
   
   // Handle duration - check if it's in predefined list, otherwise use Custom
@@ -516,12 +518,13 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
 
             {/* Content */}
             <View style={styles.content}>
-              <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="on-drag"
-              >
+              <TouchableWithoutFeedback onPress={() => setShowCategoryTooltip(false)}>
+                <ScrollView
+                  contentContainerStyle={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="on-drag"
+                >
                 {step === 0 ? (
                   <>
                     <Text style={styles.sectionTitle}>Service Details</Text>
@@ -547,8 +550,14 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                         placeholder="Select category"
                         required
                         showInfoIcon
+                        onInfoPress={() => setShowCategoryTooltip((prev) => !prev)}
+                        showTooltip={showCategoryTooltip}
+                        tooltipText="Choose the pricing model for this service"
                         value={category}
-                        onPress={() => setIsCategoryModalVisible(true)}
+                        onPress={() => {
+                          setShowCategoryTooltip(false);
+                          setIsCategoryModalVisible(true);
+                        }}
                         marginBottom={vs(8)}
                       />
                     </View>
@@ -833,7 +842,8 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                     </TouchableOpacity>
                   </>
                 )}
-              </ScrollView>
+                </ScrollView>
+              </TouchableWithoutFeedback>
             </View>
 
             {/* Footer Buttons */}

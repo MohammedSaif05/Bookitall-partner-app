@@ -19,6 +19,9 @@ type OnboardingDropdownFieldProps = {
   value?: string;
   required?: boolean;
   showInfoIcon?: boolean;
+  onInfoPress?: () => void;
+  tooltipText?: string;
+  showTooltip?: boolean;
   onPress?: () => void;
   errorText?: string;
   marginBottom?: number;
@@ -33,6 +36,9 @@ const OnboardingDropdownField: React.FC<OnboardingDropdownFieldProps> = ({
   value,
   required = false,
   showInfoIcon = false,
+  onInfoPress,
+  tooltipText,
+  showTooltip = false,
   onPress,
   errorText,
   marginBottom,
@@ -43,14 +49,30 @@ const OnboardingDropdownField: React.FC<OnboardingDropdownFieldProps> = ({
       style={[styles.container, marginBottom !== undefined && { marginBottom }]}
       onPress={onPress}
     >
-      <View style={styles.labelRow}>
-        <Text style={styles.label}>
-          {label}
-          {required && <Text style={styles.asterisk}> *</Text>}
-        </Text>
-        {showInfoIcon && (
-          <InfoIcon width={ms(18)} height={ms(18)} stroke={colors.text.primary} />
-        )}
+      <View style={styles.labelRowContainer}>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>
+            {label}
+            {required && <Text style={styles.asterisk}> *</Text>}
+          </Text>
+          {showInfoIcon && (
+            <TouchableOpacity
+              onPress={onInfoPress}
+              activeOpacity={0.8}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <InfoIcon width={ms(18)} height={ms(18)} stroke={colors.text.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
+        {showTooltip && tooltipText ? (
+          <View style={styles.tooltipWrapper}>
+            <View style={styles.tooltipBubble}>
+              <Text style={styles.tooltipText}>{tooltipText}</Text>
+            </View>
+            <View style={styles.tooltipArrow} />
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.inputRow}>
@@ -74,11 +96,14 @@ const styles = StyleSheet.create({
     paddingVertical: vs(12),
     marginBottom: vs(20),
   },
+  labelRowContainer: {
+    position: 'relative',
+    marginBottom: vs(6),
+  },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: vs(6),
   },
   label: {
     ...typography.label,
@@ -86,6 +111,39 @@ const styles = StyleSheet.create({
   },
   asterisk: {
     color: colors.text.primary,
+  },
+  tooltipWrapper: {
+    position: 'absolute',
+    top: vs(28),
+    right: 0,
+    alignItems: 'flex-end',
+    zIndex: 1000,
+    elevation: 10,
+  },
+  tooltipBubble: {
+    paddingVertical: vs(8),
+    paddingHorizontal: ms(12),
+    backgroundColor: colors.button.primary,
+    borderRadius: ms(12),
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  tooltipArrow: {
+    position: 'absolute',
+    top: -ms(6),
+    right: ms(10),
+    width: ms(12),
+    height: ms(12),
+    backgroundColor: colors.button.primary,
+    transform: [{ rotate: '45deg' }],
+    borderRadius: ms(2),
+  },
+  tooltipText: {
+    ...typography.bodySmall,
+    color: colors.text.white,
   },
   inputRow: {
     flexDirection: 'row',
