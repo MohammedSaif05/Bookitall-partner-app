@@ -8,3 +8,25 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# React Native core
+-keep class com.facebook.react.** { *; }
+-keep class com.facebook.hermes.** { *; }
+-dontwarn com.facebook.react.**
+
+# React Native Screens
+-keep class com.swmansion.rnscreens.** { *; }
+-dontwarn com.swmansion.rnscreens.**
+
+# Gesture Handler (required by navigation)
+-keep class com.swmansion.gesturehandler.** { *; }
+-dontwarn com.swmansion.gesturehandler.**
+
+# Keep native modules
+-keepclassmembers class * extends com.facebook.react.bridge.NativeModule { *; }
+-keepclassmembers class * extends com.facebook.react.uimanager.ViewManager { *; }
+-keepclassmembers class * extends com.facebook.react.bridge.JavaScriptModule { *; }
+
+# Keep annotations
+-keepattributes *Annotation*
+

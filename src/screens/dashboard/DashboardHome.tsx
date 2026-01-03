@@ -84,7 +84,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
 
   // Determine which cards to show based on businessType and field presence
   const isIndividual = vendorData?.businessType === 'Individual';
-  const hasStaffField = vendorData?.staff !== undefined; // Check if staff field exists, regardless of items
+  const staffArray = vendorData?.staff || []; // Get staff array, default to empty array
+  const hasStaff = staffArray.length > 0; // Check if staff array has items
   const servicesArray = vendorData?.services || []; // Get services array, default to empty array
   const hasServices = servicesArray.length > 0; // Check if services array has items
   // Check if bankDetails exists and has data (can be array or object)
@@ -98,7 +99,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
       ? vendorData.businessDocument.length > 0 
       : !!vendorData.businessDocument); // Check if businessDocument exists (can be string or array)
   const isBusinessVerified = hasBusinessImages && hasBusinessDocument; // Both images and documents are required
-  const showTeamCard = !isIndividual && !hasStaffField; // Hide team card for Individual or if staff field exists
+  const showTeamCard = !isIndividual && !hasStaff; // Show team card if not Individual and staff array is empty
   const showServicesCard = !hasServices; // Show services card if services array is empty
   const showBankDetailsCard = !hasBankDetails; // Show bank details card if bankDetails array/object is empty
   const showVerifyBusinessCard = !isBusinessVerified; // Show verify business card if business is not verified
@@ -273,7 +274,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ navigation }) => {
             description="Show what customers can book."
             icon={ServiceVerifyIcon}
             style={styles.cardSpacing}
-            disabled={!isIndividual && !hasStaffField}
+            disabled={!isIndividual && !hasStaff}
             onPress={() =>
               navigation
                 .getParent()
