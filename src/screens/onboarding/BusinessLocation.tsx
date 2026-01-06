@@ -53,15 +53,14 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
   }>({});
 
   // Check form completion - enable button when all text fields are filled
-  // Coordinates will be validated on submit with a clear error message
+  // Coordinates are optional
   const isFormComplete = (() => {
     const addressLineValid = addressLine.trim().length > 0;
     const landmarkValid = landmark.trim().length > 0;
     const cityValid = city.trim().length > 0;
     const pincodeValid = pincode.trim().length === 6 && /^\d+$/.test(pincode.trim());
-    const coordinatesValid = latitude !== null && longitude !== null;
     
-    // Enable button if all text fields are valid (coordinates will be checked on submit)
+    // Enable button if all text fields are valid (coordinates are optional)
     const textFieldsComplete = addressLineValid && landmarkValid && cityValid && pincodeValid;
     
     if (__DEV__) {
@@ -70,7 +69,7 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
         landmarkValid,
         cityValid,
         pincodeValid,
-        coordinatesValid,
+        hasCoordinates: latitude !== null && longitude !== null,
         addressLine: addressLine.trim(),
         landmark: landmark.trim(),
         city: city.trim(),
@@ -78,12 +77,11 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
         pincodeLength: pincode.trim().length,
         latitude,
         longitude,
-        textFieldsComplete,
-        isComplete: textFieldsComplete && coordinatesValid,
+        isComplete: textFieldsComplete,
       });
     }
     
-    // Enable button when all text fields are filled (coordinates validated on submit)
+    // Enable button when all text fields are filled (coordinates are optional)
     return textFieldsComplete;
   })();
 
@@ -223,11 +221,7 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
       }
     }
 
-    // Validate coordinates (required)
-    if (latitude === null || longitude === null) {
-      showError('Please use "Use current location" to get your coordinates.');
-      return;
-    }
+    // Coordinates are optional - no validation needed
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -251,8 +245,8 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
         googleMapLink: googleMapsLink.trim() || undefined,
         city: city.trim(),
         pincode: pincode.trim(),
-        latitude,
-        longitude,
+        ...(latitude !== null && { latitude }),
+        ...(longitude !== null && { longitude }),
       });
 
       showSuccess('Business location saved successfully!');

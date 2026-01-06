@@ -61,8 +61,8 @@ export interface BusinessLocationRequest {
   googleMapLink?: string;
   city: string;
   pincode: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 /**
@@ -283,8 +283,8 @@ class VendorService {
           googleMapLink: payload.googleMapLink || undefined,
           city: payload.city,
           pincode: payload.pincode,
-          latitude: payload.latitude,
-          longitude: payload.longitude,
+          ...(payload.latitude !== undefined && { latitude: payload.latitude }),
+          ...(payload.longitude !== undefined && { longitude: payload.longitude }),
         }
       );
       return response;
