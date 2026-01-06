@@ -520,9 +520,10 @@ class VendorService {
 
       // Step 1: Upload image file using POST
       const formData = new FormData();
-      // Append userId and serviceId as JSON strings
-      formData.append('userId', JSON.stringify(userId));
-      formData.append('serviceId', JSON.stringify(serviceId));
+      // Append userId and serviceId as plain strings
+      // Note: FormData.append automatically converts to string, so no need for JSON.stringify
+      formData.append('userId', userId);
+      formData.append('serviceId', serviceId);
 
       // Append image file
       const filename = imageUri.split('/').pop() || 'service-image.jpg';
@@ -780,36 +781,78 @@ class VendorService {
 
       // Step 1: Upload document file using POST
       const formData = new FormData();
-      // Append userId as JSON string
-      formData.append('userId', JSON.stringify(userId));
+      // Append userId as plain string
+      // Note: FormData.append automatically converts to string, so no need for JSON.stringify
+      formData.append('userId', userId);
       
       // Extract filename and determine type
-      const filename = documentUri.split('/').pop() || 'business-document.pdf';
+      // Handle both file:// and content:// URIs (Android)
+      let filename = documentUri.split('/').pop() || 'business-document.pdf';
+      // For content URIs, try to extract filename from the URI itself
+      if (documentUri.startsWith('content://')) {
+        // Content URIs might have encoded filenames, try to extract from the end
+        const contentParts = documentUri.split('%2F');
+        if (contentParts.length > 0) {
+          const lastPart = contentParts[contentParts.length - 1];
+          if (lastPart && lastPart.includes('.')) {
+            filename = decodeURIComponent(lastPart);
+          }
+        }
+      }
+      
       const match = /\.(\w+)$/.exec(filename);
       const type = match 
         ? (match[1].toLowerCase() === 'pdf' ? 'application/pdf' : `application/${match[1]}`)
         : 'application/pdf';
 
+      // For FormData, use the URI as-is (React Native handles file:// and content:// automatically)
+      // Only add file:// prefix if it's a plain path (not already a URI)
+      let finalUri = documentUri;
+      if (!documentUri.startsWith('file://') && !documentUri.startsWith('content://') && !documentUri.startsWith('http://') && !documentUri.startsWith('https://')) {
+        finalUri = `file://${documentUri}`;
+      }
+
       const documentFile = {
-        uri: documentUri.startsWith('file://') ? documentUri : `file://${documentUri}`,
+        uri: finalUri,
         name: filename,
         type,
       };
       formData.append('businessDocument', documentFile as any);
 
       // POST request to upload document
-      const uploadResponse = await fetch(
-        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_BUSINESS_DOCUMENT}/${userId}/upload-business-document`,
-        {
-          method: 'POST',
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-            Accept: 'application/json',
-            // Don't set Content-Type - fetch will set it automatically with boundary for FormData
-          },
-          body: formData,
+      let uploadResponse: Response;
+      try {
+        if (__DEV__) {
+          console.log('[UploadBusinessDocument] Uploading document:', {
+            userId,
+            documentUri,
+            filename: documentFile.name,
+            type: documentFile.type,
+          });
         }
-      );
+        
+        uploadResponse = await fetch(
+          `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_BUSINESS_DOCUMENT}/${userId}/upload-business-document`,
+          {
+            method: 'POST',
+            headers: {
+              ...(token && { Authorization: `Bearer ${token}` }),
+              Accept: 'application/json',
+              // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+            },
+            body: formData,
+          }
+        );
+      } catch (fetchError) {
+        if (__DEV__) {
+          console.error('[UploadBusinessDocument] Fetch error:', fetchError);
+        }
+        throw new Error(
+          fetchError instanceof Error && fetchError.message.includes('Network request failed')
+            ? 'Network request failed. Please check your internet connection and try again.'
+            : `Failed to upload document: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
+        );
+      }
 
       if (!uploadResponse.ok) {
         let errorData: any;
@@ -911,17 +954,37 @@ class VendorService {
 
       // Step 1: Upload image files using POST
       const formData = new FormData();
-      // Append userId as JSON string
-      formData.append('userId', JSON.stringify(userId));
+      // Append userId as plain string
+      // Note: FormData.append automatically converts to string, so no need for JSON.stringify
+      formData.append('userId', userId);
       
       // Append all images as businessImages files
       allImages.forEach((uri, index) => {
-        const filename = uri.split('/').pop() || `image-${index}.jpg`;
+        // Handle both file:// and content:// URIs (Android)
+        let filename = uri.split('/').pop() || `image-${index}.jpg`;
+        // For content URIs, try to extract filename from the URI itself
+        if (uri.startsWith('content://')) {
+          const contentParts = uri.split('%2F');
+          if (contentParts.length > 0) {
+            const lastPart = contentParts[contentParts.length - 1];
+            if (lastPart && lastPart.includes('.')) {
+              filename = decodeURIComponent(lastPart);
+            }
+          }
+        }
+        
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : `image/jpeg`;
 
+        // For FormData, use the URI as-is (React Native handles file:// and content:// automatically)
+        // Only add file:// prefix if it's a plain path (not already a URI)
+        let finalUri = uri;
+        if (!uri.startsWith('file://') && !uri.startsWith('content://') && !uri.startsWith('http://') && !uri.startsWith('https://')) {
+          finalUri = `file://${uri}`;
+        }
+
         const imageFile = {
-          uri: uri.startsWith('file://') ? uri : `file://${uri}`,
+          uri: finalUri,
           name: filename,
           type,
         };
@@ -929,18 +992,38 @@ class VendorService {
       });
 
       // POST request to upload images
-      const uploadResponse = await fetch(
-        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_BUSINESS_IMAGES}/${userId}/upload-business-images`,
-        {
-          method: 'POST',
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-            Accept: 'application/json',
-            // Don't set Content-Type - fetch will set it automatically with boundary for FormData
-          },
-          body: formData,
+      let uploadResponse: Response;
+      try {
+        if (__DEV__) {
+          console.log('[UploadBusinessImages] Uploading images:', {
+            userId,
+            imageCount: allImages.length,
+            imageUris: allImages,
+          });
         }
-      );
+        
+        uploadResponse = await fetch(
+          `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_BUSINESS_IMAGES}/${userId}/upload-business-images`,
+          {
+            method: 'POST',
+            headers: {
+              ...(token && { Authorization: `Bearer ${token}` }),
+              Accept: 'application/json',
+              // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+            },
+            body: formData,
+          }
+        );
+      } catch (fetchError) {
+        if (__DEV__) {
+          console.error('[UploadBusinessImages] Fetch error:', fetchError);
+        }
+        throw new Error(
+          fetchError instanceof Error && fetchError.message.includes('Network request failed')
+            ? 'Network request failed. Please check your internet connection and try again.'
+            : `Failed to upload images: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
+        );
+      }
 
       if (!uploadResponse.ok) {
         let errorData: any;
@@ -1083,9 +1166,10 @@ class VendorService {
 
       // Step 1: Upload image file using POST
       const formData = new FormData();
-      // Append userId and serviceId as JSON strings
-      formData.append('userId', JSON.stringify(userId));
-      formData.append('serviceId', JSON.stringify(serviceId));
+      // Append userId and serviceId as plain strings
+      // Note: FormData.append automatically converts to string, so no need for JSON.stringify
+      formData.append('userId', userId);
+      formData.append('serviceId', serviceId);
 
       // Append image file
       const filename = imageUri.split('/').pop() || 'service-image.jpg';

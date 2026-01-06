@@ -354,6 +354,11 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
   // Check if save button should be enabled - both documents and images are mandatory
   const isSaveEnabled = documents.length > 0 && primaryImage !== null;
 
+  // Helper function to check if URI is a local file (needs upload) or URL (already on server)
+  const isLocalFile = (uri: string): boolean => {
+    return uri.startsWith('file://') || (!uri.startsWith('http://') && !uri.startsWith('https://'));
+  };
+
   const handleSave = async () => {
     if (!userId) {
       showError('User ID not found. Please login again.');
@@ -374,37 +379,99 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
     try {
       setLoading(true);
       
-      // Upload document (API accepts single file, so upload the first one)
-      if (documents.length === 0) {
-        showError('Please upload at least one document');
-        return;
+      // Upload document only if it's a local file (not already uploaded URL)
+      const documentUri = documents[0].uri;
+      console.log('[VerifyBusiness] Document URI:', documentUri);
+      console.log('[VerifyBusiness] Is local file:', isLocalFile(documentUri));
+      
+      if (isLocalFile(documentUri)) {
+        try {
+          console.log('[VerifyBusiness] Starting document upload...');
+          const documentsResponse = await vendorService.uploadBusinessDocuments(
+            userId,
+            documentUri
+          );
+
+          if (!documentsResponse.success) {
+            showError('Failed to upload document. Please try again.');
+            setLoading(false);
+            return;
+          }
+          console.log('[VerifyBusiness] Document uploaded successfully');
+        } catch (docError) {
+          console.error('[VerifyBusiness] Document upload error:', docError);
+          const docErrorMessage =
+            docError instanceof Error
+              ? docError.message
+              : 'Failed to upload document. Please try again.';
+          showError(docErrorMessage);
+          setLoading(false);
+          return;
+        }
+      } else {
+        console.log('[VerifyBusiness] Document is already a URL, skipping upload');
       }
+      // If document is already a URL, skip upload (already on server)
 
-      const documentsResponse = await vendorService.uploadBusinessDocuments(
-        userId,
-        documents[0].uri
-      );
+      // Upload images only if we have at least 2 local files (API requires minimum 2 images)
+      // If all images are URLs, they're already on server, so skip upload
+      const hasLocalPrimaryImage = isLocalFile(primaryImage);
+      const localGalleryImages = galleryImages.filter(img => isLocalFile(img));
+      const totalLocalImages = (hasLocalPrimaryImage ? 1 : 0) + localGalleryImages.length;
 
-      if (!documentsResponse.success) {
-        showError('Failed to upload document. Please try again.');
+      console.log('[VerifyBusiness] Primary image:', primaryImage);
+      console.log('[VerifyBusiness] Is primary local:', hasLocalPrimaryImage);
+      console.log('[VerifyBusiness] Gallery images:', galleryImages);
+      console.log('[VerifyBusiness] Local gallery images:', localGalleryImages);
+      console.log('[VerifyBusiness] Total local images:', totalLocalImages);
+
+      if (totalLocalImages >= 2) {
+        // We have enough local images to upload
+        // Use local primary if available, otherwise we can't upload (need at least 2)
+        if (!hasLocalPrimaryImage) {
+          showError('Please upload a primary image along with gallery images.');
+          setLoading(false);
+          return;
+        }
+
+        try {
+          console.log('[VerifyBusiness] Starting image upload...');
+          const imagesResponse = await vendorService.uploadBusinessImages(
+            userId,
+            primaryImage, // This is local
+            localGalleryImages // These are local
+          );
+
+          if (!imagesResponse.success) {
+            showError('Failed to upload images. Please try again.');
+            setLoading(false);
+            return;
+          }
+          console.log('[VerifyBusiness] Images uploaded successfully');
+        } catch (imgError) {
+          console.error('[VerifyBusiness] Image upload error:', imgError);
+          const imgErrorMessage =
+            imgError instanceof Error
+              ? imgError.message
+              : 'Failed to upload images. Please try again.';
+          showError(imgErrorMessage);
+          setLoading(false);
+          return;
+        }
+      } else if (totalLocalImages > 0) {
+        // We have some local images but not enough (less than 2)
+        showError('Please upload at least 2 images (1 primary + 1 gallery).');
+        setLoading(false);
         return;
+      } else {
+        console.log('[VerifyBusiness] All images are URLs, skipping upload');
       }
-
-      // Upload images
-      const imagesResponse = await vendorService.uploadBusinessImages(
-        userId,
-        primaryImage,
-        galleryImages
-      );
-
-      if (!imagesResponse.success) {
-        showError('Failed to upload images. Please try again.');
-        return;
-      }
+      // If all images are already URLs (totalLocalImages === 0), skip upload (already on server)
 
       showSuccess('Business verification details saved successfully');
       navigation.goBack();
     } catch (error) {
+      console.error('[VerifyBusiness] General error:', error);
       const errorMessage =
         error instanceof Error
           ? error.message
