@@ -28,14 +28,17 @@ export const showError = (message: string, options?: Partial<MessageOptions>): v
       borderRadius: ms(12),
       marginHorizontal: hs(16),
       marginBottom: vs(20),
-      height: vs(36),
+      minHeight: vs(36),
       alignItems: 'center',
       justifyContent: 'center',
+      zIndex: 9999,
+      elevation: 10, // Android
     },
     textStyle: {
       fontSize: ms(14),
       fontWeight: '500',
       textAlign: 'center',
+      color: colors.text.white, // Explicitly set color for iOS
       width: '100%',
     },
     ...options,
@@ -61,14 +64,17 @@ export const showSuccess = (message: string, options?: Partial<MessageOptions>):
       borderRadius: ms(12),
       marginHorizontal: hs(16),
       marginBottom: vs(20),
-      height: vs(36),
+      minHeight: vs(36),
       alignItems: 'center',
       justifyContent: 'center',
+      zIndex: 9999,
+      elevation: 10, // Android
     },
     textStyle: {
       fontSize: ms(14),
       fontWeight: '500',
       textAlign: 'center',
+      color: colors.text.white, // Explicitly set color for iOS
       width: '100%',
     },
     ...options,
@@ -94,14 +100,17 @@ export const showInfo = (message: string, options?: Partial<MessageOptions>): vo
       borderRadius: ms(12),
       marginHorizontal: hs(16),
       marginBottom: vs(20),
-      height: vs(36),
+      minHeight: vs(36),
       alignItems: 'center',
       justifyContent: 'center',
+      zIndex: 9999,
+      elevation: 10, // Android
     },
     textStyle: {
       fontSize: ms(14),
       fontWeight: '500',
       textAlign: 'center',
+      color: colors.text.white, // Explicitly set color for iOS
       width: '100%',
     },
     ...options,
@@ -127,14 +136,17 @@ export const showWarning = (message: string, options?: Partial<MessageOptions>):
       borderRadius: ms(12),
       marginHorizontal: hs(16),
       marginBottom: vs(20),
-      height: vs(36),
+      minHeight: vs(36),
       alignItems: 'center',
       justifyContent: 'center',
+      zIndex: 9999,
+      elevation: 10, // Android
     },
     textStyle: {
       fontSize: ms(14),
       fontWeight: '500',
       textAlign: 'center',
+      color: colors.text.white, // Explicitly set color for iOS
       width: '100%',
     },
     ...options,

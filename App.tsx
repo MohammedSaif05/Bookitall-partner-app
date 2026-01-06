@@ -82,7 +82,11 @@ function App() {
         ) : (
           <AppContent shouldNavigateToSuccess={shouldNavigateToSuccess} />
         )}
-        <FlashMessage position="bottom" />
+        <FlashMessage 
+          position="bottom" 
+          floating={true}
+          style={{ zIndex: 9999 }}
+        />
       </SafeAreaProvider>
     </ErrorBoundary>
   );
