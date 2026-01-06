@@ -52,14 +52,40 @@ const BusinessLocation: React.FC<BusinessLocationProps> = ({ navigation }) => {
     googleMapsLink?: string;
   }>({});
 
-  const isFormComplete =
-    addressLine.trim().length > 0 &&
-    landmark.trim().length > 0 &&
-    city.trim().length > 0 &&
-    pincode.trim().length === 6 &&
-    /^\d+$/.test(pincode) &&
-    latitude !== null &&
-    longitude !== null;
+  // Check form completion - enable button when all text fields are filled
+  // Coordinates will be validated on submit with a clear error message
+  const isFormComplete = (() => {
+    const addressLineValid = addressLine.trim().length > 0;
+    const landmarkValid = landmark.trim().length > 0;
+    const cityValid = city.trim().length > 0;
+    const pincodeValid = pincode.trim().length === 6 && /^\d+$/.test(pincode.trim());
+    const coordinatesValid = latitude !== null && longitude !== null;
+    
+    // Enable button if all text fields are valid (coordinates will be checked on submit)
+    const textFieldsComplete = addressLineValid && landmarkValid && cityValid && pincodeValid;
+    
+    if (__DEV__) {
+      console.log('[BusinessLocation] Form completion check:', {
+        addressLineValid,
+        landmarkValid,
+        cityValid,
+        pincodeValid,
+        coordinatesValid,
+        addressLine: addressLine.trim(),
+        landmark: landmark.trim(),
+        city: city.trim(),
+        pincode: pincode.trim(),
+        pincodeLength: pincode.trim().length,
+        latitude,
+        longitude,
+        textFieldsComplete,
+        isComplete: textFieldsComplete && coordinatesValid,
+      });
+    }
+    
+    // Enable button when all text fields are filled (coordinates validated on submit)
+    return textFieldsComplete;
+  })();
 
   // Request location permission when screen loads
   useEffect(() => {
