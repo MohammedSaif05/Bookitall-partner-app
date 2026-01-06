@@ -852,9 +852,42 @@ class VendorService {
       }
       
       const match = /\.(\w+)$/.exec(filename);
-      const type = match 
-        ? (match[1].toLowerCase() === 'pdf' ? 'application/pdf' : `application/${match[1]}`)
-        : 'application/pdf';
+      // Determine MIME type based on file extension
+      let type = 'application/pdf'; // Default to PDF
+      if (match) {
+        const ext = match[1].toLowerCase();
+        switch (ext) {
+          case 'pdf':
+            type = 'application/pdf';
+            break;
+          case 'doc':
+            type = 'application/msword';
+            break;
+          case 'docx':
+            type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            break;
+          case 'xls':
+            type = 'application/vnd.ms-excel';
+            break;
+          case 'xlsx':
+            type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            break;
+          case 'ppt':
+            type = 'application/vnd.ms-powerpoint';
+            break;
+          case 'pptx':
+            type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+            break;
+          case 'txt':
+            type = 'text/plain';
+            break;
+          case 'rtf':
+            type = 'application/rtf';
+            break;
+          default:
+            type = `application/${ext}`;
+        }
+      }
 
       // For iOS, ensure proper URI format
       // iOS needs file:// prefix, but don't add it if already present or if it's a content:// URI
