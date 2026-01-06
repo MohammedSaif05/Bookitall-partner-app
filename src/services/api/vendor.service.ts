@@ -498,10 +498,14 @@ class VendorService {
 
       // Append image file (required by backend)
       // React Native FormData requires uri, type, and name
+      const filename = imageUri.split('/').pop() || 'service-image.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+
       const imageFile = {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'service-image.jpg',
+        uri: imageUri.startsWith('file://') ? imageUri : `file://${imageUri}`,
+        name: filename,
+        type,
       };
       formData.append('serviceImage', imageFile as any);
 
@@ -570,7 +574,17 @@ class VendorService {
         throw new Error(`Failed to add service image: ${errorMessage}`);
       }
 
-      const responseData: ApiResponse<BusinessSetupResponseData> = await response.json();
+      const raw = await response.text();
+      if (__DEV__) {
+        console.log('[UploadServiceImage] UPLOAD RAW RESPONSE:', raw);
+      }
+
+      let responseData: ApiResponse<BusinessSetupResponseData>;
+      try {
+        responseData = JSON.parse(raw);
+      } catch {
+        throw new Error('Server did not return valid JSON');
+      }
       
       // if (__DEV__) {
       //   console.log('[UploadServiceImage] Success response:', JSON.stringify(responseData, null, 2));
@@ -827,10 +841,14 @@ class VendorService {
       
       // Append all images as businessImages keys
       allImages.forEach((uri, index) => {
+        const filename = uri.split('/').pop() || `image-${index}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : `image/jpeg`;
+
         const imageFile = {
-          uri: uri,
-          type: 'image/jpeg',
-          name: `business-image-${index + 1}.jpg`,
+          uri: uri.startsWith('file://') ? uri : `file://${uri}`,
+          name: filename,
+          type,
         };
         formData.append('businessImages', imageFile as any);
       });
@@ -873,8 +891,17 @@ class VendorService {
         throw new Error(`Failed to upload business images: ${errorMessage}`);
       }
 
-      const responseData: ApiResponse<BusinessSetupResponseData> =
-        await response.json();
+      const raw = await response.text();
+      if (__DEV__) {
+        console.log('UPLOAD RAW RESPONSE:', raw);
+      }
+
+      let responseData: ApiResponse<BusinessSetupResponseData>;
+      try {
+        responseData = JSON.parse(raw);
+      } catch {
+        throw new Error('Server did not return valid JSON');
+      }
 
       return responseData;
     } catch (error) {
@@ -961,10 +988,14 @@ class VendorService {
 
       // Append image file (required by backend)
       // React Native FormData requires uri, type, and name
+      const filename = imageUri.split('/').pop() || 'service-image.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+
       const imageFile = {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'service-image.jpg',
+        uri: imageUri.startsWith('file://') ? imageUri : `file://${imageUri}`,
+        name: filename,
+        type,
       };
       formData.append('serviceImage', imageFile as any);
 
@@ -1025,7 +1056,17 @@ class VendorService {
         throw new Error(`Failed to update service image: ${errorMessage}`);
       }
 
-      const responseData: ApiResponse<BusinessSetupResponseData> = await response.json();
+      const raw = await response.text();
+      if (__DEV__) {
+        console.log('[UpdateServiceImage] UPLOAD RAW RESPONSE:', raw);
+      }
+
+      let responseData: ApiResponse<BusinessSetupResponseData>;
+      try {
+        responseData = JSON.parse(raw);
+      } catch {
+        throw new Error('Server did not return valid JSON');
+      }
       
       // if (__DEV__) {
       //   console.log('[UpdateServiceImage] Success response:', JSON.stringify(responseData, null, 2));
