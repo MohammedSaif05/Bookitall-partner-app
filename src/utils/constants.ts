@@ -44,8 +44,14 @@ export const API_ENDPOINTS = {
     ADD_SERVICE: '/api/vendor', // For PATCH requests (add service)
     ADD_SERVICE_JSON: '/api/vendor', // For PATCH requests (add service JSON)
     GET_SERVICES: '/api/vendors', // For GET requests (fetch services)
-    BUSINESS_DOCUMENT: '/api/vendor', // For PATCH requests (upload business documents)
-    BUSINESS_IMAGES: '/api/vendor', // For PATCH requests (upload business images)
+    BUSINESS_DOCUMENT: '/api/vendor', // For PATCH requests (upload business documents - deprecated)
+    BUSINESS_IMAGES: '/api/vendor', // For POST requests (upload business images - deprecated)
+    UPLOAD_BUSINESS_IMAGES: '/api/vendor', // For POST requests (upload business images files)
+    SAVE_BUSINESS_IMAGES: '/api/vendor', // For PATCH requests (save business images metadata)
+    UPLOAD_BUSINESS_DOCUMENT: '/api/vendor', // For POST requests (upload business document file)
+    SAVE_BUSINESS_DOCUMENT: '/api/vendor', // For PATCH requests (save business document metadata)
+    UPLOAD_SERVICE_IMAGE: '/api/vendor', // For POST requests (upload service image file)
+    SAVE_SERVICE_IMAGE: '/api/vendor', // For PATCH requests (save service image metadata)
   },
 } as const;
 

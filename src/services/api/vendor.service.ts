@@ -30,6 +30,27 @@ export interface BusinessSetupResponseData {
 }
 
 /**
+ * Business Images Upload Response Data
+ */
+export interface BusinessImagesUploadResponseData {
+  imageUrls: string[];
+}
+
+/**
+ * Business Document Upload Response Data
+ */
+export interface BusinessDocumentUploadResponseData {
+  documentUrl: string;
+}
+
+/**
+ * Service Image Upload Response Data
+ */
+export interface ServiceImageUploadResponseData {
+  imageUrl: string;
+}
+
+/**
  * Business Location Request Payload
  */
 export interface BusinessLocationRequest {
@@ -469,8 +490,11 @@ class VendorService {
 
   /**
    * Upload service image
+   * Two-step process:
+   * 1. Upload image file to get URL
+   * 2. Save image URL metadata
    * @param userId - User ID
-   * @param serviceId - Service ID from add-service-json response
+   * @param serviceId - Service ID
    * @param imageUri - Image URI
    * @returns Promise with upload response
    */
@@ -481,6 +505,9 @@ class VendorService {
   ): Promise<ApiResponse<BusinessSetupResponseData>> {
     try {
       // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
       if (!serviceId) {
         throw new Error('Service ID is required');
       }
@@ -488,16 +515,16 @@ class VendorService {
         throw new Error('Image URI is required');
       }
 
-      // Create FormData for image upload
-      // Backend expects exactly: serviceId (text) and serviceImage (file)
-      // userId is already in the URL path, so don't include it in FormData
-      const formData = new FormData();
-      
-      // Append serviceId as string (required by backend)
-      formData.append('serviceId', serviceId);
+      // Get auth token from storage
+      const token = await AsyncStorage.getItem('auth_token');
 
-      // Append image file (required by backend)
-      // React Native FormData requires uri, type, and name
+      // Step 1: Upload image file using POST
+      const formData = new FormData();
+      // Append userId and serviceId as JSON strings
+      formData.append('userId', JSON.stringify(userId));
+      formData.append('serviceId', JSON.stringify(serviceId));
+
+      // Append image file
       const filename = imageUri.split('/').pop() || 'service-image.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpeg`;
@@ -509,57 +536,35 @@ class VendorService {
       };
       formData.append('serviceImage', imageFile as any);
 
-      // if (__DEV__) {
-      //   console.log('[UploadServiceImage] Uploading image for serviceId:', serviceId);
-      //   console.log('[UploadServiceImage] FormData entries:');
-      //   // Log FormData structure (note: FormData doesn't support direct inspection in RN)
-      //   console.log('[UploadServiceImage] serviceId:', serviceId);
-      //   console.log('[UploadServiceImage] imageFile:', {
-      //     uri: imageUri,
-      //     type: 'image/jpeg',
-      //     name: 'service-image.jpg',
-      //   });
-      // }
+      // POST request to upload image
+      const uploadResponse = await fetch(
+        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_SERVICE_IMAGE}/${userId}/upload-service-image`,
+        {
+          method: 'POST',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+            Accept: 'application/json',
+            // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+          },
+          body: formData,
+        }
+      );
 
-      // Make PATCH request with FormData
-      // Use fetch API directly for FormData as it's more reliable in React Native
-      const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/add-service`;
-      
-      // Get auth token from storage
-      const token = await AsyncStorage.getItem('auth_token');
-      
-      // if (__DEV__) {
-      //   console.log('[UploadServiceImage] Request URL:', url);
-      //   console.log('[UploadServiceImage] ServiceId:', serviceId);
-      //   console.log('[UploadServiceImage] Image URI:', imageUri);
-      // }
-      
-      // Use fetch API for FormData upload (more reliable in React Native)
-      const response = await fetch(url, {
-        method: 'PATCH',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-          Accept: 'application/json',
-          // Don't set Content-Type - fetch will set it automatically with boundary for FormData
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
+      if (!uploadResponse.ok) {
         let errorData: any;
         try {
-          const text = await response.text();
+          const text = await uploadResponse.text();
           errorData = text ? JSON.parse(text) : { message: 'Unknown error' };
         } catch {
           errorData = { 
             success: false,
-            message: `Upload failed with status ${response.status}` 
+            message: `Upload failed with status ${uploadResponse.status}` 
           };
         }
         
         if (__DEV__) {
           console.error('[UploadServiceImage] Full error response:', JSON.stringify(errorData, null, 2));
-          console.error('[UploadServiceImage] Response status:', response.status);
+          console.error('[UploadServiceImage] Response status:', uploadResponse.status);
           console.error('[UploadServiceImage] ServiceId sent:', serviceId);
           console.error('[UploadServiceImage] UserId sent:', userId);
         }
@@ -569,31 +574,52 @@ class VendorService {
           errorData.message || 
           errorData.error?.message || 
           errorData.error ||
-          `Upload failed with status ${response.status}`;
+          `Upload failed with status ${uploadResponse.status}`;
         
-        throw new Error(`Failed to add service image: ${errorMessage}`);
+        throw new Error(`Failed to upload service image: ${errorMessage}`);
       }
 
-      const raw = await response.text();
+      const uploadRaw = await uploadResponse.text();
       if (__DEV__) {
-        console.log('[UploadServiceImage] UPLOAD RAW RESPONSE:', raw);
+        console.log('[UploadServiceImage] UPLOAD RAW RESPONSE:', uploadRaw);
       }
 
-      let responseData: ApiResponse<BusinessSetupResponseData>;
+      let uploadResponseData: ApiResponse<ServiceImageUploadResponseData>;
       try {
-        responseData = JSON.parse(raw);
+        uploadResponseData = JSON.parse(uploadRaw);
       } catch {
-        throw new Error('Server did not return valid JSON');
+        throw new Error('Server did not return valid JSON from upload endpoint');
       }
-      
-      // if (__DEV__) {
-      //   console.log('[UploadServiceImage] Success response:', JSON.stringify(responseData, null, 2));
-      // }
-      
-      return responseData;
+
+      if (!uploadResponseData.success || !uploadResponseData.data?.imageUrl) {
+        throw new Error('Failed to upload service image: Invalid response from server');
+      }
+
+      const imageUrl = uploadResponseData.data.imageUrl;
+
+      // Step 2: Save image URL metadata using PATCH
+      const savePayload = {
+        userId: userId,
+        serviceId: serviceId,
+        imageUrl: imageUrl,
+      };
+
+      const saveResponse = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.SAVE_SERVICE_IMAGE}/${userId}/save-service-image`,
+        savePayload
+      );
+
+      if (!saveResponse.success) {
+        throw new Error('Failed to save service image metadata');
+      }
+
+      return saveResponse;
     } catch (error) {
-      // Error is already handled by interceptor
-      throw error;
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to upload service image. Please try again.';
+      throw new Error(errorMessage);
     }
   }
 
@@ -729,45 +755,53 @@ class VendorService {
 
   /**
    * Upload business documents
+   * Two-step process:
+   * 1. Upload document file to get URL
+   * 2. Save document URL metadata
    * @param userId - User ID
-   * @param documentUris - Array of document file URIs
+   * @param documentUri - Document file URI (single file)
    * @returns Promise with upload response
    */
   async uploadBusinessDocuments(
     userId: string,
-    documentUris: string[]
+    documentUri: string
   ): Promise<ApiResponse<BusinessSetupResponseData>> {
     try {
       // Validate inputs
       if (!userId) {
         throw new Error('User ID is required');
       }
-      if (!documentUris || documentUris.length === 0) {
-        throw new Error('At least one document is required');
+      if (!documentUri) {
+        throw new Error('Document is required');
       }
-
-      // Create FormData for document upload
-      const formData = new FormData();
-      formData.append('userId', userId);
-
-      // Append each document file
-      documentUris.forEach((uri, index) => {
-        const documentFile = {
-          uri: uri,
-          type: 'application/pdf',
-          name: `business-document-${index + 1}.pdf`,
-        };
-        formData.append('businessDocument', documentFile as any);
-      });
 
       // Get auth token from storage
       const token = await AsyncStorage.getItem('auth_token');
 
-      // Use fetch API directly for FormData as it's more reliable in React Native
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.BUSINESS_DOCUMENT}/${userId}/business-document`,
+      // Step 1: Upload document file using POST
+      const formData = new FormData();
+      // Append userId as JSON string
+      formData.append('userId', JSON.stringify(userId));
+      
+      // Extract filename and determine type
+      const filename = documentUri.split('/').pop() || 'business-document.pdf';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match 
+        ? (match[1].toLowerCase() === 'pdf' ? 'application/pdf' : `application/${match[1]}`)
+        : 'application/pdf';
+
+      const documentFile = {
+        uri: documentUri.startsWith('file://') ? documentUri : `file://${documentUri}`,
+        name: filename,
+        type,
+      };
+      formData.append('businessDocument', documentFile as any);
+
+      // POST request to upload document
+      const uploadResponse = await fetch(
+        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_BUSINESS_DOCUMENT}/${userId}/upload-business-document`,
         {
-          method: 'PATCH',
+          method: 'POST',
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
             Accept: 'application/json',
@@ -777,15 +811,15 @@ class VendorService {
         }
       );
 
-      if (!response.ok) {
+      if (!uploadResponse.ok) {
         let errorData: any;
         try {
-          const text = await response.text();
+          const text = await uploadResponse.text();
           errorData = text ? JSON.parse(text) : { message: 'Unknown error' };
         } catch {
           errorData = {
             success: false,
-            message: `Upload failed with status ${response.status}`,
+            message: `Upload failed with status ${uploadResponse.status}`,
           };
         }
 
@@ -793,15 +827,45 @@ class VendorService {
           errorData.message ||
           errorData.error?.message ||
           errorData.error ||
-          `Upload failed with status ${response.status}`;
+          `Upload failed with status ${uploadResponse.status}`;
 
-        throw new Error(`Failed to upload business documents: ${errorMessage}`);
+        throw new Error(`Failed to upload business document: ${errorMessage}`);
       }
 
-      const responseData: ApiResponse<BusinessSetupResponseData> =
-        await response.json();
+      const uploadRaw = await uploadResponse.text();
+      if (__DEV__) {
+        console.log('[UploadBusinessDocument] UPLOAD RAW RESPONSE:', uploadRaw);
+      }
 
-      return responseData;
+      let uploadResponseData: ApiResponse<BusinessDocumentUploadResponseData>;
+      try {
+        uploadResponseData = JSON.parse(uploadRaw);
+      } catch {
+        throw new Error('Server did not return valid JSON from upload endpoint');
+      }
+
+      if (!uploadResponseData.success || !uploadResponseData.data?.documentUrl) {
+        throw new Error('Failed to upload document: Invalid response from server');
+      }
+
+      const documentUrl = uploadResponseData.data.documentUrl;
+
+      // Step 2: Save document URL metadata using PATCH
+      const savePayload = {
+        userId: userId,
+        documentUrl: documentUrl,
+      };
+
+      const saveResponse = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.SAVE_BUSINESS_DOCUMENT}/${userId}/save-business-document`,
+        savePayload
+      );
+
+      if (!saveResponse.success) {
+        throw new Error('Failed to save business document metadata');
+      }
+
+      return saveResponse;
     } catch (error) {
       const errorMessage =
         error instanceof Error
@@ -813,6 +877,9 @@ class VendorService {
 
   /**
    * Upload business images
+   * Two-step process:
+   * 1. Upload image files to get URLs
+   * 2. Save image URLs metadata
    * @param userId - User ID
    * @param primaryImageUri - Primary image URI
    * @param galleryImageUris - Array of gallery image URIs
@@ -832,14 +899,22 @@ class VendorService {
         throw new Error('Primary image is required');
       }
 
-      // Create FormData for image upload
-      const formData = new FormData();
-      formData.append('userId', userId);
-
-      // Combine all images (primary + gallery) and send all as businessImages
+      // Combine all images (primary + gallery) - minimum 2 files required
       const allImages = [primaryImageUri, ...galleryImageUris];
       
-      // Append all images as businessImages keys
+      if (allImages.length < 2) {
+        throw new Error('At least 2 images are required');
+      }
+
+      // Get auth token from storage
+      const token = await AsyncStorage.getItem('auth_token');
+
+      // Step 1: Upload image files using POST
+      const formData = new FormData();
+      // Append userId as JSON string
+      formData.append('userId', JSON.stringify(userId));
+      
+      // Append all images as businessImages files
       allImages.forEach((uri, index) => {
         const filename = uri.split('/').pop() || `image-${index}.jpg`;
         const match = /\.(\w+)$/.exec(filename);
@@ -853,14 +928,11 @@ class VendorService {
         formData.append('businessImages', imageFile as any);
       });
 
-      // Get auth token from storage
-      const token = await AsyncStorage.getItem('auth_token');
-
-      // Use fetch API directly for FormData as it's more reliable in React Native
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.BUSINESS_IMAGES}/${userId}/business-images`,
+      // POST request to upload images
+      const uploadResponse = await fetch(
+        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_BUSINESS_IMAGES}/${userId}/upload-business-images`,
         {
-          method: 'PATCH',
+          method: 'POST',
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
             Accept: 'application/json',
@@ -870,15 +942,15 @@ class VendorService {
         }
       );
 
-      if (!response.ok) {
+      if (!uploadResponse.ok) {
         let errorData: any;
         try {
-          const text = await response.text();
+          const text = await uploadResponse.text();
           errorData = text ? JSON.parse(text) : { message: 'Unknown error' };
         } catch {
           errorData = {
             success: false,
-            message: `Upload failed with status ${response.status}`,
+            message: `Upload failed with status ${uploadResponse.status}`,
           };
         }
 
@@ -886,24 +958,45 @@ class VendorService {
           errorData.message ||
           errorData.error?.message ||
           errorData.error ||
-          `Upload failed with status ${response.status}`;
+          `Upload failed with status ${uploadResponse.status}`;
 
         throw new Error(`Failed to upload business images: ${errorMessage}`);
       }
 
-      const raw = await response.text();
+      const uploadRaw = await uploadResponse.text();
       if (__DEV__) {
-        console.log('UPLOAD RAW RESPONSE:', raw);
+        console.log('[UploadBusinessImages] UPLOAD RAW RESPONSE:', uploadRaw);
       }
 
-      let responseData: ApiResponse<BusinessSetupResponseData>;
+      let uploadResponseData: ApiResponse<BusinessImagesUploadResponseData>;
       try {
-        responseData = JSON.parse(raw);
+        uploadResponseData = JSON.parse(uploadRaw);
       } catch {
-        throw new Error('Server did not return valid JSON');
+        throw new Error('Server did not return valid JSON from upload endpoint');
       }
 
-      return responseData;
+      if (!uploadResponseData.success || !uploadResponseData.data?.imageUrls) {
+        throw new Error('Failed to upload images: Invalid response from server');
+      }
+
+      const imageUrls = uploadResponseData.data.imageUrls;
+
+      // Step 2: Save image URLs metadata using PATCH
+      const savePayload = {
+        userId: userId,
+        imageUrls: imageUrls,
+      };
+
+      const saveResponse = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.SAVE_BUSINESS_IMAGES}/${userId}/save-business-images`,
+        savePayload
+      );
+
+      if (!saveResponse.success) {
+        throw new Error('Failed to save business images metadata');
+      }
+
+      return saveResponse;
     } catch (error) {
       const errorMessage =
         error instanceof Error
@@ -960,6 +1053,9 @@ class VendorService {
 
   /**
    * Update service image
+   * Two-step process:
+   * 1. Upload image file to get URL
+   * 2. Save image URL metadata
    * @param userId - User ID
    * @param serviceId - Service ID
    * @param imageUri - Image URI
@@ -972,6 +1068,9 @@ class VendorService {
   ): Promise<ApiResponse<BusinessSetupResponseData>> {
     try {
       // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
       if (!serviceId) {
         throw new Error('Service ID is required');
       }
@@ -979,15 +1078,16 @@ class VendorService {
         throw new Error('Image URI is required');
       }
 
-      // Create FormData for image upload
-      // Backend expects exactly: serviceId and serviceImage
-      const formData = new FormData();
-      
-      // Append serviceId as string (required by backend)
-      formData.append('serviceId', serviceId);
+      // Get auth token from storage
+      const token = await AsyncStorage.getItem('auth_token');
 
-      // Append image file (required by backend)
-      // React Native FormData requires uri, type, and name
+      // Step 1: Upload image file using POST
+      const formData = new FormData();
+      // Append userId and serviceId as JSON strings
+      formData.append('userId', JSON.stringify(userId));
+      formData.append('serviceId', JSON.stringify(serviceId));
+
+      // Append image file
       const filename = imageUri.split('/').pop() || 'service-image.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpeg`;
@@ -999,49 +1099,35 @@ class VendorService {
       };
       formData.append('serviceImage', imageFile as any);
 
-      // if (__DEV__) {
-      //   console.log('[UpdateServiceImage] Uploading image for serviceId:', serviceId);
-      // }
+      // POST request to upload image
+      const uploadResponse = await fetch(
+        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_SERVICE_IMAGE}/${userId}/upload-service-image`,
+        {
+          method: 'POST',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+            Accept: 'application/json',
+            // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+          },
+          body: formData,
+        }
+      );
 
-      // Make PATCH request with FormData
-      // Use fetch API directly for FormData as it's more reliable in React Native
-      const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.ADD_SERVICE}/${userId}/update-service`;
-      
-      // Get auth token from storage
-      const token = await AsyncStorage.getItem('auth_token');
-      
-      // if (__DEV__) {
-      //   console.log('[UpdateServiceImage] Request URL:', url);
-      //   console.log('[UpdateServiceImage] ServiceId:', serviceId);
-      //   console.log('[UpdateServiceImage] Image URI:', imageUri);
-      // }
-      
-      // Use fetch API for FormData upload (more reliable in React Native)
-      const response = await fetch(url, {
-        method: 'PATCH',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-          Accept: 'application/json',
-          // Don't set Content-Type - fetch will set it automatically with boundary for FormData
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
+      if (!uploadResponse.ok) {
         let errorData: any;
         try {
-          const text = await response.text();
+          const text = await uploadResponse.text();
           errorData = text ? JSON.parse(text) : { message: 'Unknown error' };
         } catch {
           errorData = { 
             success: false,
-            message: `Upload failed with status ${response.status}` 
+            message: `Upload failed with status ${uploadResponse.status}` 
           };
         }
         
         if (__DEV__) {
           console.error('[UpdateServiceImage] Full error response:', JSON.stringify(errorData, null, 2));
-          console.error('[UpdateServiceImage] Response status:', response.status);
+          console.error('[UpdateServiceImage] Response status:', uploadResponse.status);
           console.error('[UpdateServiceImage] ServiceId sent:', serviceId);
           console.error('[UpdateServiceImage] UserId sent:', userId);
         }
@@ -1051,31 +1137,52 @@ class VendorService {
           errorData.message || 
           errorData.error?.message || 
           errorData.error ||
-          `Upload failed with status ${response.status}`;
+          `Upload failed with status ${uploadResponse.status}`;
         
         throw new Error(`Failed to update service image: ${errorMessage}`);
       }
 
-      const raw = await response.text();
+      const uploadRaw = await uploadResponse.text();
       if (__DEV__) {
-        console.log('[UpdateServiceImage] UPLOAD RAW RESPONSE:', raw);
+        console.log('[UpdateServiceImage] UPLOAD RAW RESPONSE:', uploadRaw);
       }
 
-      let responseData: ApiResponse<BusinessSetupResponseData>;
+      let uploadResponseData: ApiResponse<ServiceImageUploadResponseData>;
       try {
-        responseData = JSON.parse(raw);
+        uploadResponseData = JSON.parse(uploadRaw);
       } catch {
-        throw new Error('Server did not return valid JSON');
+        throw new Error('Server did not return valid JSON from upload endpoint');
       }
-      
-      // if (__DEV__) {
-      //   console.log('[UpdateServiceImage] Success response:', JSON.stringify(responseData, null, 2));
-      // }
-      
-      return responseData;
+
+      if (!uploadResponseData.success || !uploadResponseData.data?.imageUrl) {
+        throw new Error('Failed to update service image: Invalid response from server');
+      }
+
+      const imageUrl = uploadResponseData.data.imageUrl;
+
+      // Step 2: Save image URL metadata using PATCH
+      const savePayload = {
+        userId: userId,
+        serviceId: serviceId,
+        imageUrl: imageUrl,
+      };
+
+      const saveResponse = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.SAVE_SERVICE_IMAGE}/${userId}/save-service-image`,
+        savePayload
+      );
+
+      if (!saveResponse.success) {
+        throw new Error('Failed to save service image metadata');
+      }
+
+      return saveResponse;
     } catch (error) {
-      // Error is already handled by interceptor
-      throw error;
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to update service image. Please try again.';
+      throw new Error(errorMessage);
     }
   }
 

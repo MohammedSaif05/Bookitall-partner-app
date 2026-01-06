@@ -374,15 +374,19 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
     try {
       setLoading(true);
       
-      // Upload documents
-      const documentUris = documents.map(doc => doc.uri);
+      // Upload document (API accepts single file, so upload the first one)
+      if (documents.length === 0) {
+        showError('Please upload at least one document');
+        return;
+      }
+
       const documentsResponse = await vendorService.uploadBusinessDocuments(
         userId,
-        documentUris
+        documents[0].uri
       );
 
       if (!documentsResponse.success) {
-        showError('Failed to upload documents. Please try again.');
+        showError('Failed to upload document. Please try again.');
         return;
       }
 
