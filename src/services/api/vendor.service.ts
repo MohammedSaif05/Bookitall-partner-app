@@ -1004,7 +1004,22 @@ class VendorService {
         }
         
         const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : `image/jpeg`;
+        // Fix MIME type: jpg should be jpeg, and ensure proper image types
+        let type = 'image/jpeg';
+        if (match) {
+          const ext = match[1].toLowerCase();
+          if (ext === 'jpg' || ext === 'jpeg') {
+            type = 'image/jpeg';
+          } else if (ext === 'png') {
+            type = 'image/png';
+          } else if (ext === 'gif') {
+            type = 'image/gif';
+          } else if (ext === 'webp') {
+            type = 'image/webp';
+          } else {
+            type = `image/${ext}`;
+          }
+        }
 
         // For iOS, ensure proper URI format
         // iOS needs file:// prefix, but don't add it if already present or if it's a content:// URI
@@ -1205,7 +1220,22 @@ class VendorService {
       // Append image file
       const filename = imageUri.split('/').pop() || 'service-image.jpg';
       const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
+      // Fix MIME type: jpg should be jpeg, and ensure proper image types
+      let type = 'image/jpeg';
+      if (match) {
+        const ext = match[1].toLowerCase();
+        if (ext === 'jpg' || ext === 'jpeg') {
+          type = 'image/jpeg';
+        } else if (ext === 'png') {
+          type = 'image/png';
+        } else if (ext === 'gif') {
+          type = 'image/gif';
+        } else if (ext === 'webp') {
+          type = 'image/webp';
+        } else {
+          type = `image/${ext}`;
+        }
+      }
 
       // For iOS, ensure proper URI format
       // iOS needs file:// prefix, but don't add it if already present or if it's a content:// URI
