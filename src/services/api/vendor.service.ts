@@ -528,7 +528,22 @@ class VendorService {
       // Append image file
       const filename = imageUri.split('/').pop() || 'service-image.jpg';
       const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
+      // Fix MIME type: jpg should be jpeg, and ensure proper image types
+      let type = 'image/jpeg';
+      if (match) {
+        const ext = match[1].toLowerCase();
+        if (ext === 'jpg' || ext === 'jpeg') {
+          type = 'image/jpeg';
+        } else if (ext === 'png') {
+          type = 'image/png';
+        } else if (ext === 'gif') {
+          type = 'image/gif';
+        } else if (ext === 'webp') {
+          type = 'image/webp';
+        } else {
+          type = `image/${ext}`;
+        }
+      }
 
       // For iOS, ensure proper URI format
       // iOS needs file:// prefix, but don't add it if already present or if it's a content:// URI
@@ -536,13 +551,20 @@ class VendorService {
       if (!imageUri.startsWith('file://') && !imageUri.startsWith('content://') && !imageUri.startsWith('ph://') && !imageUri.startsWith('assets-library://')) {
         finalUri = `file://${imageUri}`;
       }
+      
+      // Clean up URI for iOS - remove any double slashes
+      if (finalUri.includes('file:////')) {
+        finalUri = finalUri.replace(/file:\/\/\/+/g, 'file:///');
+      }
 
-      const imageFile = {
+      // For iOS FormData, ensure proper file object structure
+      const imageFile: any = {
         uri: finalUri,
         name: filename,
-        type,
+        type, // Now correctly set to 'image/jpeg' for jpg files
       };
-      formData.append('serviceImage', imageFile as any);
+      
+      formData.append('serviceImage', imageFile);
 
       // POST request to upload image
       let uploadResponse: Response;
@@ -553,7 +575,7 @@ class VendorService {
             serviceId,
             imageUri: finalUri,
             filename: imageFile.name,
-            type: imageFile.type,
+            type: imageFile.type, // Should now show 'image/jpeg' instead of 'image/jpg'
           });
         }
         
