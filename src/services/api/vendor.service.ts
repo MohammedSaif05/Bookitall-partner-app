@@ -10,6 +10,7 @@ import apiClient from './client';
 import type { ApiResponse } from '../../types/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import mime from 'mime';
+import { Platform } from 'react-native';
 
 /**
  * Business Setup Request Payload
@@ -583,13 +584,21 @@ class VendorService {
           console.log('[UploadServiceImage] Upload URL:', uploadUrl);
         }
         
+        // Prepare headers - iOS has issues with Accept header when using FormData
+        const headers: Record<string, string> = {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        };
+        
+        // Only add Accept header on Android - iOS FormData has issues with it
+        if (Platform.OS === 'android') {
+          headers.Accept = 'application/json';
+        }
+        
+        // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+        
         uploadResponse = await fetch(uploadUrl, {
           method: 'POST',
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-            Accept: 'application/json',
-            // Don't set Content-Type - fetch will set it automatically with boundary for FormData
-          },
+          headers,
           body: formData,
         });
       } catch (fetchError) {
