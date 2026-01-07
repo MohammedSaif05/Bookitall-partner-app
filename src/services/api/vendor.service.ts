@@ -533,7 +533,7 @@ class VendorService {
       const type = mime.getType(filename) || 'image/jpeg';
 
       // For iOS, ensure proper URI format
-      // iOS needs file:// prefix, but don't add it if already present or if it's a content:// URI
+      // React Native iOS FormData needs the file:// prefix
       // Also handle iOS photo library URIs (ph://, assets-library://)
       let finalUri = imageUri;
       if (!imageUri.startsWith('file://') && !imageUri.startsWith('content://') && !imageUri.startsWith('ph://') && !imageUri.startsWith('assets-library://') && !imageUri.startsWith('http://') && !imageUri.startsWith('https://')) {
@@ -543,6 +543,12 @@ class VendorService {
       // Clean up URI for iOS - remove any double slashes
       if (finalUri.includes('file:////')) {
         finalUri = finalUri.replace(/file:\/\/\/+/g, 'file:///');
+      }
+      
+      // On iOS, ensure single slash after file:// (file:///path not file://path)
+      if (Platform.OS === 'ios' && finalUri.startsWith('file://') && !finalUri.startsWith('file:///')) {
+        // This shouldn't happen, but handle it just in case
+        finalUri = finalUri.replace('file://', 'file:///');
       }
 
       // For iOS FormData, ensure proper file object structure
@@ -584,23 +590,46 @@ class VendorService {
           console.log('[UploadServiceImage] Upload URL:', uploadUrl);
         }
         
-        // Prepare headers - iOS has issues with Accept header when using FormData
-        const headers: Record<string, string> = {
-          ...(token && { Authorization: `Bearer ${token}` }),
+        // Prepare headers - iOS FormData requires specific header handling
+        // iOS has known issues with Accept header when using FormData with fetch
+        const fetchOptions: RequestInit = {
+          method: 'POST',
+          body: formData,
         };
         
-        // Only add Accept header on Android - iOS FormData has issues with it
+        // Build headers conditionally - iOS is very sensitive to headers with FormData
+        // On iOS, only include headers if we have a token (no Accept header)
+        // On Android, include Accept header even without token
+        const headers: Record<string, string> = {};
+        
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+        
+        // Only add Accept header on Android - iOS FormData fails with it
         if (Platform.OS === 'android') {
           headers.Accept = 'application/json';
         }
         
-        // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+        // Only set headers if we have any (iOS doesn't like empty headers object)
+        if (Object.keys(headers).length > 0) {
+          fetchOptions.headers = headers;
+        }
         
-        uploadResponse = await fetch(uploadUrl, {
-          method: 'POST',
-          headers,
-          body: formData,
-        });
+        // CRITICAL: Never set Content-Type for FormData - React Native will set it automatically
+        // with the correct boundary. Manually setting it will cause upload to fail.
+        
+        if (__DEV__) {
+          console.log('[UploadServiceImage] Platform:', Platform.OS);
+          console.log('[UploadServiceImage] Fetch options:', {
+            method: fetchOptions.method,
+            hasHeaders: !!fetchOptions.headers,
+            headers: fetchOptions.headers,
+            hasToken: !!token,
+          });
+        }
+        
+        uploadResponse = await fetch(uploadUrl, fetchOptions);
       } catch (fetchError) {
         if (__DEV__) {
           console.error('[UploadServiceImage] Fetch error:', fetchError);
