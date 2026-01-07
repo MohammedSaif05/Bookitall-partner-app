@@ -341,16 +341,23 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         // Step 2: Update image if it changed (new image selected)
         if (primaryImage && primaryImage !== originalImageUri) {
           try {
-            await vendorService.updateServiceImage(
+            console.log('Updating image for serviceId:', serviceId);
+            const imageResponse = await vendorService.updateServiceImage(
               userId,
               serviceId,
               primaryImage
             );
+
+            if (imageResponse.success) {
+              console.log('Image updated successfully');
+            } else {
+              console.warn('Image update failed, but service was updated');
+              // Don't show error - service was updated successfully
+            }
+          } catch (imageError) {
+            console.error('Image update error:', imageError);
             // Don't show error - service was updated successfully
             // Image can be updated later if needed
-          } catch {
-            // Don't show error - service was updated successfully
-            // Image can be uploaded later if needed
           }
         }
 
@@ -373,33 +380,27 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         // Step 2: Upload image if provided
         if (primaryImage && response.data) {
           // Extract serviceId from response
-          // Response structure: { success: true, data: { data: { serviceId: "...", ... } } }
+          // Response structure: { services: [{ serviceId: "...", ... }] }
           const responseData = response.data as any;
           let newServiceId: string | undefined;
-
-          // Access nested data.data.serviceId
-          newServiceId = responseData?.data?.serviceId || responseData?.serviceId;
+          
+          // Check if services array exists and get the LAST service's serviceId (newly created one)
+          if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+            // Get the last service in the array (the newly created one)
+            const lastService = responseData.services[responseData.services.length - 1];
+            newServiceId = lastService.serviceId;
+          } else if (responseData.serviceId) {
+            // Fallback: check if serviceId is directly in response.data
+            newServiceId = responseData.serviceId;
+          }
           
           if (newServiceId) {
-            if (__DEV__) {
-              console.log('[AddService] Extracted serviceId:', newServiceId);
-            }
-          } else {
-            if (__DEV__) {
-              console.warn('[AddService] ServiceId not found in response');
-              console.log('[AddService] Response data structure:', JSON.stringify(responseData, null, 2));
-            }
-          }
-
-          if (newServiceId) {
             try {
-              if (__DEV__) {
-                console.log('[AddService] Starting image upload for serviceId:', newServiceId);
-              }
-              
               // Delay to ensure service is fully saved and indexed on backend
+              // Backend needs time to fully process and save the service before image upload
               await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
-
+              
+              // console.log('Uploading image for serviceId:', newServiceId);
               const imageResponse = await vendorService.uploadServiceImage(
                 userId,
                 newServiceId,
@@ -407,31 +408,19 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
               );
 
               if (imageResponse.success) {
-                if (__DEV__) {
-                  console.log('[AddService] Image uploaded successfully');
-                }
+                console.log('Image uploaded successfully');
               } else {
-                if (__DEV__) {
-                  console.warn('[AddService] Image upload failed, but service was created');
-                }
+                console.warn('Image upload failed, but service was created');
+                // Don't show error - service was created successfully
               }
-            } catch (error) {
-              if (__DEV__) {
-                console.error('[AddService] Image upload error:', error);
-              }
-              // Don't show error to user - service was created successfully
+            } catch (imageError) {
+              console.error('Image upload error:', imageError);
+              // Don't show error - service was created successfully
               // Image can be uploaded later if needed
             }
           } else {
-            if (__DEV__) {
-              console.warn('[AddService] ServiceId not found, skipping image upload');
-            }
-          }
-        } else {
-          if (__DEV__) {
-            console.log('[AddService] No image to upload or response.data is missing');
-            console.log('[AddService] primaryImage:', primaryImage);
-            console.log('[AddService] response.data:', response.data);
+            console.warn('ServiceId not found in response, skipping image upload');
+            console.log('Response data structure:', JSON.stringify(responseData, null, 2));
           }
         }
 

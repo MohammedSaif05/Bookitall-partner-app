@@ -9,8 +9,6 @@ import { API_ENDPOINTS, API_CONFIG } from '../../utils/constants';
 import apiClient from './client';
 import type { ApiResponse } from '../../types/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import mime from 'mime';
-import { Platform } from 'react-native';
 
 /**
  * Business Setup Request Payload
@@ -529,14 +527,28 @@ class VendorService {
 
       // Append image file
       const filename = imageUri.split('/').pop() || 'service-image.jpg';
-      // Use mime package to get correct MIME type
-      const type = mime.getType(filename) || 'image/jpeg';
+      const match = /\.(\w+)$/.exec(filename);
+      // Fix MIME type: jpg should be jpeg, and ensure proper image types
+      let type = 'image/jpeg';
+      if (match) {
+        const ext = match[1].toLowerCase();
+        if (ext === 'jpg' || ext === 'jpeg') {
+          type = 'image/jpeg';
+        } else if (ext === 'png') {
+          type = 'image/png';
+        } else if (ext === 'gif') {
+          type = 'image/gif';
+        } else if (ext === 'webp') {
+          type = 'image/webp';
+        } else {
+          type = `image/${ext}`;
+        }
+      }
 
       // For iOS, ensure proper URI format
-      // React Native iOS FormData needs the file:// prefix
-      // Also handle iOS photo library URIs (ph://, assets-library://)
+      // iOS needs file:// prefix, but don't add it if already present or if it's a content:// URI
       let finalUri = imageUri;
-      if (!imageUri.startsWith('file://') && !imageUri.startsWith('content://') && !imageUri.startsWith('ph://') && !imageUri.startsWith('assets-library://') && !imageUri.startsWith('http://') && !imageUri.startsWith('https://')) {
+      if (!imageUri.startsWith('file://') && !imageUri.startsWith('content://') && !imageUri.startsWith('ph://') && !imageUri.startsWith('assets-library://')) {
         finalUri = `file://${imageUri}`;
       }
       
@@ -544,15 +556,8 @@ class VendorService {
       if (finalUri.includes('file:////')) {
         finalUri = finalUri.replace(/file:\/\/\/+/g, 'file:///');
       }
-      
-      // On iOS, ensure single slash after file:// (file:///path not file://path)
-      if (Platform.OS === 'ios' && finalUri.startsWith('file://') && !finalUri.startsWith('file:///')) {
-        // This shouldn't happen, but handle it just in case
-        finalUri = finalUri.replace('file://', 'file:///');
-      }
 
       // For iOS FormData, ensure proper file object structure
-      // Match the exact structure used in business images upload
       const imageFile: any = {
         uri: finalUri,
         name: filename,
@@ -560,16 +565,6 @@ class VendorService {
       };
       
       formData.append('serviceImage', imageFile);
-      
-      if (__DEV__) {
-        console.log('[UploadServiceImage] FormData prepared:', {
-          userId,
-          serviceId,
-          filename: imageFile.name,
-          type: imageFile.type,
-          uriLength: finalUri.length,
-        });
-      }
 
       // POST request to upload image
       let uploadResponse: Response;
@@ -584,60 +579,21 @@ class VendorService {
           });
         }
         
-        const uploadUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_SERVICE_IMAGE}/${userId}/upload-service-image`;
-        
-        if (__DEV__) {
-          console.log('[UploadServiceImage] Upload URL:', uploadUrl);
-        }
-        
-        // Prepare headers - iOS FormData requires specific header handling
-        // iOS has known issues with Accept header when using FormData with fetch
-        const fetchOptions: RequestInit = {
-          method: 'POST',
-          body: formData,
-        };
-        
-        // Build headers conditionally - iOS is very sensitive to headers with FormData
-        // On iOS, only include headers if we have a token (no Accept header)
-        // On Android, include Accept header even without token
-        const headers: Record<string, string> = {};
-        
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-        
-        // Only add Accept header on Android - iOS FormData fails with it
-        if (Platform.OS === 'android') {
-          headers.Accept = 'application/json';
-        }
-        
-        // Only set headers if we have any (iOS doesn't like empty headers object)
-        if (Object.keys(headers).length > 0) {
-          fetchOptions.headers = headers;
-        }
-        
-        // CRITICAL: Never set Content-Type for FormData - React Native will set it automatically
-        // with the correct boundary. Manually setting it will cause upload to fail.
-        
-        if (__DEV__) {
-          console.log('[UploadServiceImage] Platform:', Platform.OS);
-          console.log('[UploadServiceImage] Fetch options:', {
-            method: fetchOptions.method,
-            hasHeaders: !!fetchOptions.headers,
-            headers: fetchOptions.headers,
-            hasToken: !!token,
-          });
-        }
-        
-        uploadResponse = await fetch(uploadUrl, fetchOptions);
+        uploadResponse = await fetch(
+          `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_SERVICE_IMAGE}/${userId}/upload-service-image`,
+          {
+            method: 'POST',
+            headers: {
+              ...(token && { Authorization: `Bearer ${token}` }),
+              Accept: 'application/json',
+              // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+            },
+            body: formData,
+          }
+        );
       } catch (fetchError) {
         if (__DEV__) {
           console.error('[UploadServiceImage] Fetch error:', fetchError);
-          console.error('[UploadServiceImage] Error details:', {
-            message: fetchError instanceof Error ? fetchError.message : 'Unknown error',
-            name: fetchError instanceof Error ? fetchError.name : 'Unknown',
-            stack: fetchError instanceof Error ? fetchError.stack : undefined,
-          });
         }
         throw new Error(
           fetchError instanceof Error && (fetchError.message.includes('Network request failed') || fetchError.message.includes('cannot parse response'))

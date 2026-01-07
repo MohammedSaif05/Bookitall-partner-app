@@ -234,11 +234,8 @@ const VerifyBusinessScreen: React.FC<VerifyBusinessScreenProps> = ({ navigation 
 
       // Use document picker for PDF files
       // For Android 13+ and iOS, no permission needed - system handles it
-      // iOS requires UTIs (Uniform Type Identifiers), Android uses MIME types
       const result = await pick({
-        type: Platform.OS === 'ios' 
-          ? ['public.pdf'] // iOS UTI for PDF files
-          : ['application/pdf'], // Android MIME type
+        type: ['application/pdf'],
         allowMultiSelection: true,
       });
 
