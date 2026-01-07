@@ -547,8 +547,9 @@ class VendorService {
 
       // For iOS, ensure proper URI format
       // iOS needs file:// prefix, but don't add it if already present or if it's a content:// URI
+      // Also handle iOS photo library URIs (ph://, assets-library://)
       let finalUri = imageUri;
-      if (!imageUri.startsWith('file://') && !imageUri.startsWith('content://') && !imageUri.startsWith('ph://') && !imageUri.startsWith('assets-library://')) {
+      if (!imageUri.startsWith('file://') && !imageUri.startsWith('content://') && !imageUri.startsWith('ph://') && !imageUri.startsWith('assets-library://') && !imageUri.startsWith('http://') && !imageUri.startsWith('https://')) {
         finalUri = `file://${imageUri}`;
       }
       
@@ -558,6 +559,7 @@ class VendorService {
       }
 
       // For iOS FormData, ensure proper file object structure
+      // Match the exact structure used in business images upload
       const imageFile: any = {
         uri: finalUri,
         name: filename,
@@ -565,6 +567,16 @@ class VendorService {
       };
       
       formData.append('serviceImage', imageFile);
+      
+      if (__DEV__) {
+        console.log('[UploadServiceImage] FormData prepared:', {
+          userId,
+          serviceId,
+          filename: imageFile.name,
+          type: imageFile.type,
+          uriLength: finalUri.length,
+        });
+      }
 
       // POST request to upload image
       let uploadResponse: Response;
@@ -579,21 +591,29 @@ class VendorService {
           });
         }
         
-        uploadResponse = await fetch(
-          `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_SERVICE_IMAGE}/${userId}/upload-service-image`,
-          {
-            method: 'POST',
-            headers: {
-              ...(token && { Authorization: `Bearer ${token}` }),
-              Accept: 'application/json',
-              // Don't set Content-Type - fetch will set it automatically with boundary for FormData
-            },
-            body: formData,
-          }
-        );
+        const uploadUrl = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.VENDOR.UPLOAD_SERVICE_IMAGE}/${userId}/upload-service-image`;
+        
+        if (__DEV__) {
+          console.log('[UploadServiceImage] Upload URL:', uploadUrl);
+        }
+        
+        uploadResponse = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+            Accept: 'application/json',
+            // Don't set Content-Type - fetch will set it automatically with boundary for FormData
+          },
+          body: formData,
+        });
       } catch (fetchError) {
         if (__DEV__) {
           console.error('[UploadServiceImage] Fetch error:', fetchError);
+          console.error('[UploadServiceImage] Error details:', {
+            message: fetchError instanceof Error ? fetchError.message : 'Unknown error',
+            name: fetchError instanceof Error ? fetchError.name : 'Unknown',
+            stack: fetchError instanceof Error ? fetchError.stack : undefined,
+          });
         }
         throw new Error(
           fetchError instanceof Error && (fetchError.message.includes('Network request failed') || fetchError.message.includes('cannot parse response'))
