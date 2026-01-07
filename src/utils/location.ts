@@ -36,6 +36,15 @@ export interface AddressDetails {
 export const requestLocationPermission = async (): Promise<boolean> => {
   if (Platform.OS === 'android') {
     try {
+      // First check if permission is already granted
+      const alreadyGranted = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+      );
+      if (alreadyGranted) {
+        return true;
+      }
+
+      // Request permission
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         {
@@ -46,20 +55,38 @@ export const requestLocationPermission = async (): Promise<boolean> => {
           buttonPositive: 'OK',
         }
       );
+      
+      if (__DEV__) {
+        console.log('Android location permission result:', granted);
+      }
+      
       return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (err) {
-      console.warn('Location permission error:', err);
+      console.warn('Android location permission error:', err);
       return false;
     }
   }
   
   // iOS: Use react-native-geolocation-service's requestAuthorization
-  // This will prompt the user if permission hasn't been granted yet
+  // This will prompt the user if permission hasn't been granted yet (notDetermined)
   // If already granted, it returns 'granted' without prompting again
+  // If denied/restricted, it returns the status without prompting (user must go to Settings)
   if (Platform.OS === 'ios') {
     try {
       const authStatus = await Geolocation.requestAuthorization('whenInUse');
       // Authorization status: 'granted', 'denied', 'restricted', 'disabled'
+      
+      if (__DEV__) {
+        console.log('iOS location authorization status:', authStatus);
+      }
+      
+      // If denied or restricted, user needs to enable in Settings
+      if (authStatus === 'denied' || authStatus === 'restricted') {
+        if (__DEV__) {
+          console.warn('iOS location permission denied/restricted. User must enable in Settings.');
+        }
+      }
+      
       return authStatus === 'granted';
     } catch (err) {
       console.warn('iOS location permission error:', err);
@@ -76,18 +103,27 @@ export const requestLocationPermission = async (): Promise<boolean> => {
  */
 export const checkLocationPermission = async (): Promise<boolean> => {
   if (Platform.OS === 'android') {
-    const result = await PermissionsAndroid.check(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-    );
-    return result;
+    try {
+      const result = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+      );
+      return result;
+    } catch (err) {
+      console.warn('Android location permission check error:', err);
+      return false;
+    }
   }
   
   // iOS: requestAuthorization is idempotent - if already granted, it returns 'granted' without prompting
-  // This is async so it won't block the main thread
+  // If denied/restricted, it returns the status without prompting (can't prompt again)
+  // If not determined, it will prompt the user
   if (Platform.OS === 'ios') {
     try {
       const authStatus = await Geolocation.requestAuthorization('whenInUse');
       // Authorization status: 'granted', 'denied', 'restricted', 'disabled'
+      if (__DEV__) {
+        console.log('iOS location authorization status:', authStatus);
+      }
       return authStatus === 'granted';
     } catch (err) {
       console.warn('iOS location permission check error:', err);
@@ -379,8 +415,13 @@ const handleLocationError = (
 
   switch (error.code) {
     case 1: // PERMISSION_DENIED
-      errorMessage =
-        'Location permission denied. Please enable location access in settings.';
+      if (Platform.OS === 'ios') {
+        errorMessage =
+          'Location permission denied. Please enable location access in Settings > Privacy & Security > Location Services.';
+      } else {
+        errorMessage =
+          'Location permission denied. Please enable location access in Settings > Apps > Bookitallpartner > Permissions.';
+      }
       break;
     case 2: // POSITION_UNAVAILABLE
       errorMessage =
@@ -390,9 +431,12 @@ const handleLocationError = (
       errorMessage =
         'Location request timed out. Please move to an area with better GPS signal and try again.';
       break;
-    case 4: // PLAY_SERVICE_NOT_AVAILABLE (Android)
+    case 4: // PLAY_SERVICE_NOT_AVAILABLE (Android only)
       errorMessage =
         'Google Play Services is not available. Please update Google Play Services.';
+      break;
+    default:
+      errorMessage = error.message || 'Failed to get your location. Please try again.';
       break;
   }
 
