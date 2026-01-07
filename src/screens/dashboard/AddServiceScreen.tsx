@@ -341,23 +341,16 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         // Step 2: Update image if it changed (new image selected)
         if (primaryImage && primaryImage !== originalImageUri) {
           try {
-            console.log('Updating image for serviceId:', serviceId);
-            const imageResponse = await vendorService.updateServiceImage(
+            await vendorService.updateServiceImage(
               userId,
               serviceId,
               primaryImage
             );
-
-            if (imageResponse.success) {
-              console.log('Image updated successfully');
-            } else {
-              console.warn('Image update failed, but service was updated');
-              // Don't show error - service was updated successfully
-            }
-          } catch (imageError) {
-            console.error('Image update error:', imageError);
             // Don't show error - service was updated successfully
             // Image can be updated later if needed
+          } catch {
+            // Don't show error - service was updated successfully
+            // Image can be uploaded later if needed
           }
         }
 
@@ -380,113 +373,36 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         // Step 2: Upload image if provided
         if (primaryImage && response.data) {
           // Extract serviceId from response
-          // Response structure can vary: { services: [{ serviceId: "...", ... }] } or { serviceId: "..." } or { data: { serviceId: "..." } }
-          const responseData = response.data as any;
+          // Response structure: { success: true, data: { services: [{ serviceId: "...", ... }] } }
+          // The last service in the services array is the newly created one
+          const responseData = response.data;
           let newServiceId: string | undefined;
-          
-          // Log full response for debugging
-          if (__DEV__) {
-            console.log('[AddService] Full response:', JSON.stringify(response, null, 2));
-            console.log('[AddService] Response data:', JSON.stringify(responseData, null, 2));
-          }
-          
-          // Try multiple possible locations for serviceId
-          // 1. Check if services array exists and get the LAST service's serviceId (newly created one)
+
           if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+            // Get the last service in the array (the newly created one)
             const lastService = responseData.services[responseData.services.length - 1];
-            newServiceId = lastService.serviceId || lastService._id || lastService.id;
-          } 
-          // 2. Check if serviceId is directly in response.data
-          else if (responseData.serviceId) {
-            newServiceId = responseData.serviceId;
+            newServiceId = lastService.serviceId;
           }
-          // 3. Check if _id exists (MongoDB format)
-          else if (responseData._id) {
-            newServiceId = responseData._id;
-          }
-          // 4. Check if id exists
-          else if (responseData.id) {
-            newServiceId = responseData.id;
-          }
-          // 5. Check nested data.serviceId
-          else if (responseData.data?.serviceId) {
-            newServiceId = responseData.data.serviceId;
-          }
-          // 6. Check nested data._id
-          else if (responseData.data?._id) {
-            newServiceId = responseData.data._id;
-          }
-          // 7. Check if service object exists with serviceId
-          else if (responseData.service?.serviceId) {
-            newServiceId = responseData.service.serviceId;
-          }
-          // 8. Check if service object exists with _id
-          else if (responseData.service?._id) {
-            newServiceId = responseData.service._id;
-          }
-          
-          // Fallback: Fetch services list and find the newly created service by name
-          if (!newServiceId) {
-            try {
-              if (__DEV__) {
-                console.log('[AddService] ServiceId not found in response, fetching services list as fallback...');
-              }
-              const servicesResponse = await vendorService.getServices(userId);
-              if (servicesResponse.success && servicesResponse.data?.services) {
-                // Find the service that matches the service name we just created
-                const createdService = servicesResponse.data.services.find(
-                  (s: any) => s.serviceName === serviceData.serviceName
-                );
-                if (createdService) {
-                  newServiceId = createdService.serviceId || (createdService as any)._id || (createdService as any).id;
-                  if (__DEV__) {
-                    console.log('[AddService] Found serviceId from services list:', newServiceId);
-                  }
-                } else if (servicesResponse.data.services.length > 0) {
-                  // If exact match not found, get the last service (most recently created)
-                  const lastService = servicesResponse.data.services[servicesResponse.data.services.length - 1];
-                  newServiceId = lastService.serviceId || (lastService as any)._id || (lastService as any).id;
-                  if (__DEV__) {
-                    console.log('[AddService] Using last service from list as fallback:', newServiceId);
-                  }
-                }
-              }
-            } catch (fetchError) {
-              console.error('[AddService] Error fetching services list:', fetchError);
-            }
-          }
-          
+
           if (newServiceId) {
             try {
               // Delay to ensure service is fully saved and indexed on backend
-              // Backend needs time to fully process and save the service before image upload
               await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
-              
-              if (__DEV__) {
-                console.log('[AddService] Uploading image for serviceId:', newServiceId);
-              }
+
               const imageResponse = await vendorService.uploadServiceImage(
                 userId,
                 newServiceId,
                 primaryImage
               );
 
-              if (imageResponse.success) {
-                if (__DEV__) {
-                  console.log('[AddService] Image uploaded successfully');
-                }
-              } else {
-                console.warn('[AddService] Image upload failed, but service was created');
+              if (!imageResponse.success) {
                 // Don't show error - service was created successfully
+                // Image can be uploaded later if needed
               }
-            } catch (imageError) {
-              console.error('[AddService] Image upload error:', imageError);
+            } catch {
               // Don't show error - service was created successfully
               // Image can be uploaded later if needed
             }
-          } else {
-            console.warn('[AddService] ServiceId not found in response or services list, skipping image upload');
-            console.log('[AddService] Response data structure:', JSON.stringify(responseData, null, 2));
           }
         }
 
