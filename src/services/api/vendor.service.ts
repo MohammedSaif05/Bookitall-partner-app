@@ -9,6 +9,7 @@ import { API_ENDPOINTS, API_CONFIG } from '../../utils/constants';
 import apiClient from './client';
 import type { ApiResponse } from '../../types/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import mime from 'mime';
 
 /**
  * Business Setup Request Payload
@@ -527,23 +528,8 @@ class VendorService {
 
       // Append image file
       const filename = imageUri.split('/').pop() || 'service-image.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      // Fix MIME type: jpg should be jpeg, and ensure proper image types
-      let type = 'image/jpeg';
-      if (match) {
-        const ext = match[1].toLowerCase();
-        if (ext === 'jpg' || ext === 'jpeg') {
-          type = 'image/jpeg';
-        } else if (ext === 'png') {
-          type = 'image/png';
-        } else if (ext === 'gif') {
-          type = 'image/gif';
-        } else if (ext === 'webp') {
-          type = 'image/webp';
-        } else {
-          type = `image/${ext}`;
-        }
-      }
+      // Use mime package to get correct MIME type
+      const type = mime.getType(filename) || 'image/jpeg';
 
       // For iOS, ensure proper URI format
       // iOS needs file:// prefix, but don't add it if already present or if it's a content:// URI

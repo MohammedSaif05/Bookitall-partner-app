@@ -373,26 +373,20 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         // Step 2: Upload image if provided
         if (primaryImage && response.data) {
           // Extract serviceId from response
-          // Response structure: { success: true, data: { data: { services: [{ serviceId: "...", ... }] } } }
-          // The last service in the services array is the newly created one
+          // Response structure: { success: true, data: { data: { serviceId: "...", ... } } }
           const responseData = response.data as any;
           let newServiceId: string | undefined;
 
-          // Access nested data.data.services array
-          const servicesArray = responseData?.data?.services || responseData?.services;
+          // Access nested data.data.serviceId
+          newServiceId = responseData?.data?.serviceId || responseData?.serviceId;
           
-          if (servicesArray && Array.isArray(servicesArray) && servicesArray.length > 0) {
-            // Get the last service in the array (the newly created one)
-            const lastService = servicesArray[servicesArray.length - 1];
-            newServiceId = lastService.serviceId;
-            
+          if (newServiceId) {
             if (__DEV__) {
               console.log('[AddService] Extracted serviceId:', newServiceId);
-              console.log('[AddService] Services array length:', servicesArray.length);
             }
           } else {
             if (__DEV__) {
-              console.warn('[AddService] Services array not found or empty in response');
+              console.warn('[AddService] ServiceId not found in response');
               console.log('[AddService] Response data structure:', JSON.stringify(responseData, null, 2));
             }
           }
