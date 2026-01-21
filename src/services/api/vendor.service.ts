@@ -181,6 +181,11 @@ export interface Service {
   maxCapacity?: number; // For swimming pool services
   ageGroup?: 'adults' | 'children'; // For swimming pool services
   dressCode?: string; // For swimming pool services
+  // SPA-specific fields
+  therapistGender?: 'male' | 'female'; // For spa services
+  maxConcurrentSessions?: number; // For spa services
+  roomType?: string; // For spa services
+  treatmentCategory?: string; // For spa services
 }
 
 /**
@@ -910,6 +915,134 @@ class VendorService {
         }),
         ...(serviceData.amenities && serviceData.amenities.length > 0 && {
           amenities: serviceData.amenities,
+        }),
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.UPDATE_SERVICE_JSON}/${userId}/update-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Add spa service
+   * @param userId - User ID
+   * @param serviceData - SPA service data
+   * @returns Promise with add service response
+   */
+  async addSpaService(
+    userId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      serviceDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      price: number;
+      priceUnitLabel: string;
+      therapistGender: 'male' | 'female';
+      maxConcurrentSessions: number;
+      roomType?: string;
+      treatmentCategory?: string;
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate serviceData is not null/undefined
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload matching backend contract: wrap inside `service`
+      const payload = {
+        service: {
+          category: serviceData.category,
+          serviceName: serviceData.serviceName.trim(),
+          serviceDurationInMinutes: serviceData.serviceDurationInMinutes,
+          bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+          price: serviceData.price,
+          priceUnitLabel: serviceData.priceUnitLabel,
+          therapistGender: serviceData.therapistGender,
+          maxConcurrentSessions: serviceData.maxConcurrentSessions,
+          ...(serviceData.roomType && {
+            roomType: serviceData.roomType,
+          }),
+          ...(serviceData.treatmentCategory && {
+            treatmentCategory: serviceData.treatmentCategory,
+          }),
+        },
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/add-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Update spa service
+   * @param userId - User ID
+   * @param serviceId - Service ID to update
+   * @param serviceData - Updated spa service data
+   * @returns Promise with update response
+   */
+  async updateSpaService(
+    userId: string,
+    serviceId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      serviceDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      price: number;
+      priceUnitLabel: string;
+      therapistGender: 'male' | 'female';
+      maxConcurrentSessions: number;
+      roomType?: string;
+      treatmentCategory?: string;
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload with userId, serviceId, and service data
+      const payload = {
+        userId,
+        serviceId,
+        category: serviceData.category,
+        serviceName: serviceData.serviceName.trim(),
+        serviceDurationInMinutes: serviceData.serviceDurationInMinutes,
+        bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+        price: serviceData.price,
+        priceUnitLabel: serviceData.priceUnitLabel,
+        therapistGender: serviceData.therapistGender,
+        maxConcurrentSessions: serviceData.maxConcurrentSessions,
+        ...(serviceData.roomType && {
+          roomType: serviceData.roomType,
+        }),
+        ...(serviceData.treatmentCategory && {
+          treatmentCategory: serviceData.treatmentCategory,
         }),
       };
 

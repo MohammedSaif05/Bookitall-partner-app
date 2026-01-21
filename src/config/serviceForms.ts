@@ -95,6 +95,47 @@ export const SWIMMING_POOL_AMENITIES = [
 ] as const;
 
 /**
+ * Room types for SPA services
+ */
+export const SPA_ROOM_TYPES = [
+  'Single',
+  'Double',
+  'Couple',
+  'VIP',
+  'Private',
+  'Shared',
+] as const;
+
+/**
+ * Treatment categories for SPA services
+ */
+export const SPA_TREATMENT_CATEGORIES = [
+  'Massage',
+  'Facial',
+  'Body Treatment',
+  'Aromatherapy',
+  'Hot Stone',
+  'Deep Tissue',
+  'Swedish',
+  'Thai',
+  'Reflexology',
+  'Scrub',
+  'Waxing',
+  'Manicure',
+  'Pedicure',
+  'Hair Treatment',
+  'Other',
+] as const;
+
+/**
+ * Therapist gender options for SPA services
+ */
+export const THERAPIST_GENDER_OPTIONS: Array<{ label: string; value: string }> = [
+  { label: 'Male', value: 'male' },
+  { label: 'Female', value: 'female' },
+];
+
+/**
  * Service Form Field Configuration
  */
 export interface ServiceFormField {

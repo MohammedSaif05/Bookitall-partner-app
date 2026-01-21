@@ -31,7 +31,7 @@ import BackIcon from '../../assets/svg/icons/back.svg';
 import InfoIcon from '../../assets/svg/icons/info.svg';
 import UploadDocumentIcon from '../../assets/svg/icons/upload_document.svg';
 import { OnboardingCTAButton, OnboardingDropdownField } from '../../components/onboarding';
-import { TurfServiceForm, type TurfServiceFormData, SaloonServiceForm, type SaloonServiceFormData, SwimmingPoolServiceForm, type SwimmingPoolServiceFormData } from '../../components/serviceForms';
+import { TurfServiceForm, type TurfServiceFormData, SaloonServiceForm, type SaloonServiceFormData, SwimmingPoolServiceForm, type SwimmingPoolServiceFormData, SpaServiceForm, type SpaServiceFormData } from '../../components/serviceForms';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { vendorService, type StaffMember, type VendorData } from '../../services/api/vendor.service';
 import { userStorage } from '../../utils/storage';
@@ -168,6 +168,17 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     return businessCategory === 'swimming-pool' || businessCategory === 'swimming pool';
   };
 
+  // Check if we should use category-based form (e.g., SPA)
+  const isSpaCategory = () => {
+    // Check editService category first (for edit mode)
+    if (editService?.category) {
+      return editService.category.toLowerCase() === 'spa';
+    }
+    // Check vendorData business category (for add mode)
+    if (!vendorData?.businessCategory) return false;
+    return vendorData.businessCategory.toLowerCase() === 'spa';
+  };
+
   // Turf service form data - initialize from editService if in edit mode and category is turf
   const [turfFormData, setTurfFormData] = useState<Partial<TurfServiceFormData>>(() => {
     if (isEditMode && editService && editService.category === 'turf') {
@@ -242,6 +253,25 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   });
   const [swimmingPoolFormErrors, setSwimmingPoolFormErrors] = useState<Partial<Record<keyof SwimmingPoolServiceFormData, string>>>({});
 
+  // SPA service form data - initialize from editService if in edit mode and category is spa
+  const [spaFormData, setSpaFormData] = useState<Partial<SpaServiceFormData>>(() => {
+    if (editService && editService.category === 'spa') {
+      // Map editService fields to spa form data
+      return {
+        serviceName: editService.serviceName || '',
+        serviceDurationInMinutes: editService.serviceDurationInMinutes || editService.serviceDuration || 0,
+        bufferTimeInMinutes: editService.bufferTimeInMinutes || editService.bufferTime || 0,
+        price: (editService as any).price || editService.serviceCost || 0,
+        therapistGender: ((editService as any).therapistGender as 'male' | 'female') || 'male',
+        maxConcurrentSessions: (editService as any).maxConcurrentSessions || editService.maximumNo || 0,
+        roomType: (editService as any).roomType,
+        treatmentCategory: (editService as any).treatmentCategory,
+      };
+    }
+    return {};
+  });
+  const [spaFormErrors, setSpaFormErrors] = useState<Partial<Record<keyof SpaServiceFormData, string>>>({});
+
   // Stable onChange to avoid infinite update loops (child useEffect depends on onChange)
   const handleTurfFormChange = useCallback((data: Partial<TurfServiceFormData>) => {
     setTurfFormData((prev) => {
@@ -275,6 +305,21 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   // Stable onChange for swimming pool form
   const handleSwimmingPoolFormChange = useCallback((data: Partial<SwimmingPoolServiceFormData>) => {
     setSwimmingPoolFormData((prev) => {
+      // If nothing actually changed, keep previous object to avoid re-renders
+      const next = { ...prev, ...data };
+      const keys = Object.keys(next) as Array<keyof typeof next>;
+      for (const key of keys) {
+        if (prev[key] !== next[key]) {
+          return next;
+        }
+      }
+      return prev;
+    });
+  }, []);
+
+  // Stable onChange for spa form
+  const handleSpaFormChange = useCallback((data: Partial<SpaServiceFormData>) => {
+    setSpaFormData((prev) => {
       // If nothing actually changed, keep previous object to avoid re-renders
       const next = { ...prev, ...data };
       const keys = Object.keys(next) as Array<keyof typeof next>;
@@ -325,6 +370,18 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     if (!swimmingPoolFormData.maxCapacity || swimmingPoolFormData.maxCapacity <= 0) return false;
     if (!swimmingPoolFormData.ageGroup) return false;
     if (!swimmingPoolFormData.allowedGenders) return false;
+    if (!primaryImage) return false; // Image is required
+    return true;
+  };
+
+  // Check if spa form is valid (all fields filled + image selected)
+  const isSpaFormValid = () => {
+    if (!spaFormData.serviceName?.trim()) return false;
+    if (!spaFormData.serviceDurationInMinutes || spaFormData.serviceDurationInMinutes <= 0) return false;
+    if (spaFormData.bufferTimeInMinutes === undefined || spaFormData.bufferTimeInMinutes < 0) return false;
+    if (!spaFormData.price || spaFormData.price <= 0) return false;
+    if (!spaFormData.therapistGender) return false;
+    if (!spaFormData.maxConcurrentSessions || spaFormData.maxConcurrentSessions <= 0) return false;
     if (!primaryImage) return false; // Image is required
     return true;
   };
@@ -420,6 +477,12 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     // For swimming pool category, we use a single-step form
     if (isSwimmingPoolCategory()) {
       handleSaveSwimmingPoolService();
+      return;
+    }
+
+    // For spa category, we use a single-step form
+    if (isSpaCategory()) {
+      handleSaveSpaService();
       return;
     }
 
@@ -1078,6 +1141,205 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     }
   };
 
+  const handleSaveSpaService = async () => {
+    // Validate spa form data
+    const errors: Partial<Record<keyof SpaServiceFormData, string>> = {};
+    
+    if (!spaFormData.serviceName?.trim()) {
+      errors.serviceName = 'Please enter service name';
+    }
+    if (!spaFormData.serviceDurationInMinutes || spaFormData.serviceDurationInMinutes <= 0) {
+      errors.serviceDurationInMinutes = 'Please enter valid service duration';
+    }
+    if (spaFormData.bufferTimeInMinutes === undefined || spaFormData.bufferTimeInMinutes < 0) {
+      errors.bufferTimeInMinutes = 'Please enter valid buffer time';
+    }
+    if (!spaFormData.price || spaFormData.price <= 0) {
+      errors.price = 'Please enter valid price';
+    }
+    if (!spaFormData.therapistGender) {
+      errors.therapistGender = 'Please select therapist gender';
+    }
+    if (!spaFormData.maxConcurrentSessions || spaFormData.maxConcurrentSessions <= 0) {
+      errors.maxConcurrentSessions = 'Please enter valid max concurrent sessions';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setSpaFormErrors(errors);
+      return;
+    }
+
+    setSpaFormErrors({});
+
+    try {
+      setSavingService(true);
+      const userId = await userStorage.getUserId();
+      
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        setSavingService(false);
+        return;
+      }
+
+      // Prepare spa service data
+      const serviceData = {
+        category: 'spa',
+        serviceName: spaFormData.serviceName!.trim(),
+        serviceDurationInMinutes: spaFormData.serviceDurationInMinutes!,
+        bufferTimeInMinutes: spaFormData.bufferTimeInMinutes!,
+        price: spaFormData.price!,
+        priceUnitLabel: 'per session',
+        therapistGender: spaFormData.therapistGender!,
+        maxConcurrentSessions: spaFormData.maxConcurrentSessions!,
+        roomType: spaFormData.roomType,
+        treatmentCategory: spaFormData.treatmentCategory,
+      };
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Adding spa service with payload:',
+          JSON.stringify(serviceData, null, 2)
+        );
+      }
+
+      if (isEditMode) {
+        // EDIT MODE: Update existing spa service
+        if (!serviceId || serviceId.trim() === '') {
+          showError('Service ID not found. Cannot update service.');
+          setSavingService(false);
+          return;
+        }
+
+        const response = await vendorService.updateSpaService(
+          userId,
+          serviceId,
+          serviceData
+        );
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Update spa service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to update service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Update image if it changed
+        if (primaryImage && primaryImage !== originalImageUri) {
+          try {
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.log('Updating image for serviceId:', serviceId);
+            }
+            const imageResponse = await vendorService.updateServiceImage(
+              userId,
+              serviceId,
+              primaryImage
+            );
+
+            if (imageResponse.success) {
+              if (__DEV__) {
+                // eslint-disable-next-line no-console
+                console.log('Image updated successfully');
+              }
+            } else {
+              if (__DEV__) {
+                console.warn('Image update failed, but service was updated');
+              }
+            }
+          } catch (imageError) {
+            if (__DEV__) {
+              console.error('Image update error:', imageError);
+            }
+          }
+        }
+
+        showSuccess('Service updated successfully!');
+        navigation.navigate('Services');
+      } else {
+        // ADD MODE: Create new spa service
+        const response = await vendorService.addSpaService(userId, serviceData);
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Add spa service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to add service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Upload image if provided
+        if (primaryImage && response.data) {
+          const responseData = response.data as any;
+          let newServiceId: string | undefined;
+          
+          // Extract serviceId from response
+          if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+            const lastService = responseData.services[responseData.services.length - 1];
+            newServiceId = lastService.serviceId;
+          } else if (responseData.serviceId) {
+            newServiceId = responseData.serviceId;
+          }
+          
+          if (newServiceId) {
+            try {
+              // Delay to ensure service is fully saved
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+              
+              const imageResponse = await vendorService.uploadServiceImage(
+                userId,
+                newServiceId,
+                primaryImage
+              );
+
+              if (!imageResponse.success) {
+                if (__DEV__) {
+                  console.warn('Image upload failed, but service was created');
+                }
+              }
+            } catch (imageError) {
+              if (__DEV__) {
+                console.error('Image upload error:', imageError);
+              }
+            }
+          }
+        }
+
+        showSuccess('Service added successfully!');
+        navigation.navigate('Services');
+      }
+    } catch (error) {
+      const axiosError = error as CustomAxiosError;
+      const errorMessage =
+        axiosError.response?.data?.message || 'Failed to add service. Please try again.';
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Add spa service API error:',
+          JSON.stringify(axiosError.response?.data ?? error, null, 2)
+        );
+      }
+
+      showError(errorMessage);
+    } finally {
+      setSavingService(false);
+    }
+  };
+
   const handleSaveService = async () => {
     try {
       setSavingService(true);
@@ -1568,6 +1830,59 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                       )}
                     </TouchableOpacity>
               </ScrollView>
+            ) : isSpaCategory() ? (
+              // SPA category form - single step
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
+                bounces={true}
+              >
+                    <Text style={styles.sectionTitle}>Service Details</Text>
+                    <SpaServiceForm
+                      initialData={spaFormData}
+                      onChange={handleSpaFormChange}
+                      errors={spaFormErrors}
+                    />
+                    
+                    <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
+                    
+                    {/* Images */}
+                    <Text style={styles.sectionTitle}>
+                      Service Image<Text style={styles.asterisk}> *</Text>
+                    </Text>
+                    <Text style={styles.imagesInstruction}>
+                      Upload service image (required)
+                    </Text>
+
+                    {/* Primary Image Upload */}
+                    <TouchableOpacity
+                      style={styles.imageUploadArea}
+                      activeOpacity={0.8}
+                      onPress={handleImageUpload}
+                    >
+                      {primaryImage ? (
+                        <Image source={{ uri: primaryImage }} style={styles.uploadedImage} />
+                      ) : (
+                        <View style={styles.imageUploadContent}>
+                          <View style={styles.uploadIconContainer}>
+                            <UploadDocumentIcon
+                              width={hs(48)}
+                              height={vs(48)}
+                              stroke={colors.text.secondary}
+                            />
+                          </View>
+                          <Text style={styles.uploadText}>Upload Image</Text>
+                          <Text style={styles.uploadHint}>
+                            Tap to select an image from your gallery
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+              </ScrollView>
             ) : (
               // Regular multi-step form for other categories
               <ScrollView
@@ -1948,13 +2263,13 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                 onPress={handleCancel}
               >
                 <Text style={styles.cancelButtonText}>
-                  {isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory() ? 'Cancel' : step === 0 ? 'Cancel' : 'Back'}
+                  {isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory() || isSpaCategory() ? 'Cancel' : step === 0 ? 'Cancel' : 'Back'}
                 </Text>
               </TouchableOpacity>
 
               <OnboardingCTAButton
                 label={
-                  isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory()
+                  isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory() || isSpaCategory()
                     ? isEditMode
                       ? 'Update Service'
                       : 'Save Service'
@@ -1972,6 +2287,8 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                     ? !isSaloonFormValid() || savingService
                     : isSwimmingPoolCategory()
                     ? !isSwimmingPoolFormValid() || savingService
+                    : isSpaCategory()
+                    ? !isSpaFormValid() || savingService
                     : step === 0
                     ? !isDetailsStepValid
                     : step === 1
