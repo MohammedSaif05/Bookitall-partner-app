@@ -55,7 +55,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   const [showBufferTimeTooltip, setShowBufferTimeTooltip] = useState(false);
   const [showMaxCustomersTooltip, setShowMaxCustomersTooltip] = useState(false);
   const [showApplicableToTooltip, setShowApplicableToTooltip] = useState(false);
-  const [price, setPrice] = useState(editService?.serviceCost.toString() || '');
+  const [price, setPrice] = useState(editService?.serviceCost?.toString() || editService?.pricePerSlot?.toString() || '');
   
   // Handle duration - check if it's in predefined list, otherwise use Custom
   const predefinedDurations = ['10', '15', '30', '45', '60'];
@@ -140,8 +140,23 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     return vendorData.businessCategory.toLowerCase() === 'turf';
   };
 
-  // Turf service form data
-  const [turfFormData, setTurfFormData] = useState<Partial<TurfServiceFormData>>({});
+  // Turf service form data - initialize from editService if in edit mode and category is turf
+  const [turfFormData, setTurfFormData] = useState<Partial<TurfServiceFormData>>(() => {
+    if (isEditMode && editService && editService.category === 'turf') {
+      // Map editService fields to turf form data
+      return {
+        serviceName: editService.serviceName || '',
+        sportType: editService.sportType || '',
+        serviceDurationInMinutes: editService.slotDurationInMinutes || 0,
+        bufferTimeInMinutes: editService.bufferTimeInMinutes || 0,
+        price: editService.pricePerSlot || 0,
+        maximumPlayers: editService.maxPlayers || 0,
+        serviceFor: editService.allowedGenders === 'mixed' ? 'both' : (editService.allowedGenders as 'male' | 'female' | 'both') || 'both',
+        amenities: editService.amenities || [],
+      };
+    }
+    return {};
+  });
   const [turfFormErrors, setTurfFormErrors] = useState<Partial<Record<keyof TurfServiceFormData, string>>>({});
 
   // Stable onChange to avoid infinite update loops (child useEffect depends on onChange)
@@ -357,59 +372,125 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         );
       }
 
-      // Call API to create turf service
-      const response = await vendorService.addCategoryService(userId, serviceData);
-
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log(
-          'Add turf service API response:',
-          JSON.stringify(response, null, 2)
-        );
-      }
-
-      if (!response.success) {
-        showError('Failed to add service. Please try again.');
-        setSavingService(false);
-        return;
-      }
-
-      // Upload image if provided
-      if (primaryImage && response.data) {
-        const responseData = response.data as any;
-        let newServiceId: string | undefined;
-        
-        // Extract serviceId from response
-        if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
-          const lastService = responseData.services[responseData.services.length - 1];
-          newServiceId = lastService.serviceId;
-        } else if (responseData.serviceId) {
-          newServiceId = responseData.serviceId;
+      if (isEditMode) {
+        // EDIT MODE: Update existing turf service
+        if (!serviceId || serviceId.trim() === '') {
+          showError('Service ID not found. Cannot update service.');
+          setSavingService(false);
+          return;
         }
-        
-        if (newServiceId) {
+
+        // Use updateCategoryService for edit mode
+        const response = await vendorService.updateCategoryService(
+          userId,
+          serviceId,
+          serviceData
+        );
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Update turf service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to update service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Update image if it changed
+        if (primaryImage && primaryImage !== originalImageUri) {
           try {
-            // Delay to ensure service is fully saved
-            await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
-            
-            const imageResponse = await vendorService.uploadServiceImage(
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.log('Updating image for serviceId:', serviceId);
+            }
+            const imageResponse = await vendorService.updateServiceImage(
               userId,
-              newServiceId,
+              serviceId,
               primaryImage
             );
 
-            if (!imageResponse.success) {
-              console.warn('Image upload failed, but service was created');
+            if (imageResponse.success) {
+              if (__DEV__) {
+                // eslint-disable-next-line no-console
+                console.log('Image updated successfully');
+              }
+            } else {
+              if (__DEV__) {
+                console.warn('Image update failed, but service was updated');
+              }
             }
           } catch (imageError) {
-            console.error('Image upload error:', imageError);
-            // Don't show error - service was created successfully
+            if (__DEV__) {
+              console.error('Image update error:', imageError);
+            }
           }
         }
-      }
 
-      showSuccess('Service added successfully!');
-      navigation.navigate('Services');
+        showSuccess('Service updated successfully!');
+        navigation.navigate('Services');
+      } else {
+        // ADD MODE: Create new turf service
+        const response = await vendorService.addCategoryService(userId, serviceData);
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Add turf service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to add service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Upload image if provided
+        if (primaryImage && response.data) {
+          const responseData = response.data as any;
+          let newServiceId: string | undefined;
+          
+          // Extract serviceId from response
+          if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+            const lastService = responseData.services[responseData.services.length - 1];
+            newServiceId = lastService.serviceId;
+          } else if (responseData.serviceId) {
+            newServiceId = responseData.serviceId;
+          }
+          
+          if (newServiceId) {
+            try {
+              // Delay to ensure service is fully saved
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+              
+              const imageResponse = await vendorService.uploadServiceImage(
+                userId,
+                newServiceId,
+                primaryImage
+              );
+
+              if (!imageResponse.success) {
+                if (__DEV__) {
+                  console.warn('Image upload failed, but service was created');
+                }
+              }
+            } catch (imageError) {
+              if (__DEV__) {
+                console.error('Image upload error:', imageError);
+              }
+            }
+          }
+        }
+
+        showSuccess('Service added successfully!');
+        navigation.navigate('Services');
+      }
     } catch (error) {
       const axiosError = error as CustomAxiosError;
       const errorMessage =

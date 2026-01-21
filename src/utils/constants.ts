@@ -47,6 +47,7 @@ export const API_ENDPOINTS = {
     GET_VENDOR: '/api/vendors', // For GET requests (fetch vendor data)
     ADD_SERVICE: '/api/vendor', // For PATCH requests (add service)
     ADD_SERVICE_JSON: '/api/vendor', // For PATCH requests (add service JSON)
+    UPDATE_SERVICE_JSON: '/api/vendor', // For PATCH requests (update service JSON)
     GET_SERVICES: '/api/vendors', // For GET requests (fetch services)
     BUSINESS_DOCUMENT: '/api/vendor', // For PATCH requests (upload business documents - deprecated)
     BUSINESS_IMAGES: '/api/vendor', // For POST requests (upload business images - deprecated)

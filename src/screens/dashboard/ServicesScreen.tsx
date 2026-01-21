@@ -59,7 +59,9 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
       const response = await vendorService.getServices(userId);
 
       if (response.success && response.data) {
-        setServicesList(response.data.services || []);
+        // Handle nested response structure: response.data.data.services
+        const servicesData = (response.data as any).data?.services || response.data.services || [];
+        setServicesList(servicesData);
       } else {
         showError('Failed to load services');
       }
@@ -106,8 +108,8 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
     return servicesList.filter(
       (service) =>
         service.serviceName.toLowerCase().includes(query) ||
-        service.description.toLowerCase().includes(query) ||
-        service.category.toLowerCase().includes(query)
+        service.category.toLowerCase().includes(query) ||
+        (service.category === 'turf' && service.sportType?.toLowerCase().includes(query))
     );
   }, [servicesList, searchQuery]);
 
@@ -310,13 +312,6 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
                         </TouchableOpacity>
                       </View>
 
-                      {/* Description */}
-                      {service.description ? (
-                        <Text style={styles.serviceDescription} numberOfLines={2}>
-                          {service.description}
-                        </Text>
-                      ) : null}
-
                       {/* Service Details Row */}
                       <View style={styles.serviceDetailsRow}>
                         {/* Toggle Switch */}
@@ -335,10 +330,14 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
                         {/* Cost and Duration */}
                         <View style={styles.costDurationContainer}>
                           <Text style={styles.serviceCost}>
-                            ₹{service.serviceCost}
+                            ₹{service.category === 'turf' 
+                              ? service.pricePerSlot || 0
+                              : service.serviceCost || 0}
                           </Text>
                           <Text style={styles.serviceDuration}>
-                            {service.serviceDuration} mins
+                            {service.category === 'turf'
+                              ? `${service.slotDurationInMinutes || 0} mins`
+                              : `${service.serviceDuration || 0} mins`}
                           </Text>
                         </View>
                       </View>
@@ -547,13 +546,6 @@ const styles = StyleSheet.create({
     height: ms(4),
     borderRadius: ms(2),
     backgroundColor: colors.text.primary,
-  },
-  serviceDescription: {
-    ...typography.body,
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginBottom: vs(12),
-    lineHeight: 20,
   },
   serviceDetailsRow: {
     flexDirection: 'row',

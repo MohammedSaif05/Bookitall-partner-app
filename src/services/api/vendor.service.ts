@@ -151,16 +151,25 @@ export interface StaffMember {
 export interface Service {
   serviceId: string;
   serviceName: string;
-  serviceDuration: number;
-  serviceCost: number;
-  gender: string;
-  description: string;
+  serviceDuration?: number; // For non-turf services
+  serviceCost?: number; // For non-turf services
+  gender?: string;
+  description?: string;
   category: string;
-  bufferTime: number;
+  bufferTime?: number;
   assignedStaff: string[];
-  maximumNo: number;
+  maximumNo?: number;
   serviceImage?: string; // Optional service image URL
   isActive?: boolean; // Optional active status
+  // Turf-specific fields
+  sportType?: string;
+  slotDurationInMinutes?: number; // For turf services
+  pricePerSlot?: number; // For turf services
+  maxPlayers?: number; // For turf services
+  allowedGenders?: string; // For turf services
+  amenities?: string[]; // For turf services
+  priceUnitLabel?: string; // For turf services
+  bufferTimeInMinutes?: number; // For turf services
 }
 
 /**
@@ -570,6 +579,72 @@ class VendorService {
       // Make PATCH request with JSON payload
       const response = await apiClient.patch<BusinessSetupResponseData>(
         `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/add-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Update category-based service (e.g., Turf)
+   * @param userId - User ID
+   * @param serviceId - Service ID to update
+   * @param serviceData - Updated category-based service data
+   * @returns Promise with update response
+   */
+  async updateCategoryService(
+    userId: string,
+    serviceId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      sportType: string;
+      slotDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      pricePerSlot: number;
+      priceUnitLabel?: string;
+      maxPlayers: number;
+      allowedGenders: 'male' | 'female' | 'mixed';
+      amenities?: string[];
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload with userId, serviceId, and service data
+      const payload = {
+        userId,
+        serviceId,
+        category: serviceData.category,
+        serviceName: serviceData.serviceName.trim(),
+        sportType: serviceData.sportType,
+        slotDurationInMinutes: serviceData.slotDurationInMinutes,
+        bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+        pricePerSlot: serviceData.pricePerSlot,
+        priceUnitLabel: serviceData.priceUnitLabel || 'per person',
+        maxPlayers: serviceData.maxPlayers,
+        allowedGenders: serviceData.allowedGenders,
+        ...(serviceData.amenities && serviceData.amenities.length > 0 && {
+          amenities: serviceData.amenities,
+        }),
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.UPDATE_SERVICE_JSON}/${userId}/update-service-json`,
         payload
       );
 
