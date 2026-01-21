@@ -334,28 +334,30 @@ const TurfServiceForm: React.FC<TurfServiceFormProps> = ({
             <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Select Sport Type</Text>
-                {SPORT_TYPES.map((sport) => (
-                  <TouchableOpacity
-                    key={sport}
-                    style={[
-                      styles.modalOption,
-                      sportType === sport && styles.modalOptionSelected,
-                    ]}
-                    onPress={() => handleSportTypeSelect(sport)}
-                  >
-                    <Text
+                <ScrollView style={styles.amenitiesScrollView}>
+                  {SPORT_TYPES.map((sport) => (
+                    <TouchableOpacity
+                      key={sport}
                       style={[
-                        styles.modalOptionText,
-                        sportType === sport && styles.modalOptionTextSelected,
+                        styles.modalOption,
+                        sportType === sport && styles.modalOptionSelected,
                       ]}
+                      onPress={() => handleSportTypeSelect(sport)}
                     >
-                      {sport}
-                    </Text>
-                    {sportType === sport && (
-                      <Text style={styles.checkmark}>✓</Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.modalOptionText,
+                          sportType === sport && styles.modalOptionTextSelected,
+                        ]}
+                      >
+                        {sport}
+                      </Text>
+                      {sportType === sport && (
+                        <Text style={styles.checkmark}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             </TouchableWithoutFeedback>
           </View>

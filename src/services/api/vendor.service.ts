@@ -533,11 +533,13 @@ class VendorService {
     serviceData: {
       category: string;
       serviceName: string;
-      serviceDurationInMinutes: number;
+      sportType: string;
+      slotDurationInMinutes: number;
       bufferTimeInMinutes: number;
-      price: number;
+      pricePerSlot: number;
       priceUnitLabel?: string;
-      serviceFor: 'male' | 'female' | 'mixed';
+      maxPlayers: number;
+      allowedGenders: 'male' | 'female' | 'mixed';
       amenities?: string[];
     }
   ): Promise<ApiResponse<BusinessSetupResponseData>> {
@@ -547,18 +549,22 @@ class VendorService {
         throw new Error('Service data is required');
       }
 
-      // Prepare payload
+      // Prepare payload matching backend contract: wrap inside `service`
       const payload = {
-        category: serviceData.category,
-        serviceName: serviceData.serviceName.trim(),
-        serviceDurationInMinutes: serviceData.serviceDurationInMinutes,
-        bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
-        price: serviceData.price,
-        priceUnitLabel: serviceData.priceUnitLabel || 'per person',
-        serviceFor: serviceData.serviceFor,
-        ...(serviceData.amenities && serviceData.amenities.length > 0 && {
-          amenities: serviceData.amenities,
-        }),
+        service: {
+          category: serviceData.category,
+          serviceName: serviceData.serviceName.trim(),
+          sportType: serviceData.sportType,
+          slotDurationInMinutes: serviceData.slotDurationInMinutes,
+          bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+          pricePerSlot: serviceData.pricePerSlot,
+          priceUnitLabel: serviceData.priceUnitLabel || 'per person',
+          maxPlayers: serviceData.maxPlayers,
+          allowedGenders: serviceData.allowedGenders,
+          ...(serviceData.amenities && serviceData.amenities.length > 0 && {
+            amenities: serviceData.amenities,
+          }),
+        },
       };
 
       // Make PATCH request with JSON payload

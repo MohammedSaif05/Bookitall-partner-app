@@ -30,7 +30,7 @@ import { hs, vs, ms } from '../../theme/scaling';
 import BackIcon from '../../assets/svg/icons/back.svg';
 import InfoIcon from '../../assets/svg/icons/info.svg';
 import UploadDocumentIcon from '../../assets/svg/icons/upload_document.svg';
-import { PageIndicators, OnboardingCTAButton, OnboardingDropdownField } from '../../components/onboarding';
+import { OnboardingCTAButton, OnboardingDropdownField } from '../../components/onboarding';
 import { TurfServiceForm, type TurfServiceFormData } from '../../components/serviceForms';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { vendorService, type StaffMember, type VendorData } from '../../services/api/vendor.service';
@@ -162,6 +162,19 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   const isDetailsStepValid = serviceName.trim().length > 0 && !!category;
   const isPricingStepValid = price.trim().length > 0;
   const isCapacityStepValid = maxCustomers.trim().length > 0 && applicableTo.trim().length > 0;
+  
+  // Check if turf form is valid (all fields filled + image selected)
+  const isTurfFormValid = () => {
+    if (!turfFormData.serviceName?.trim()) return false;
+    if (!turfFormData.sportType) return false;
+    if (!turfFormData.serviceDurationInMinutes || turfFormData.serviceDurationInMinutes <= 0) return false;
+    if (turfFormData.bufferTimeInMinutes === undefined || turfFormData.bufferTimeInMinutes < 0) return false;
+    if (!turfFormData.price || turfFormData.price <= 0) return false;
+    if (!turfFormData.maximumPlayers || turfFormData.maximumPlayers <= 0) return false;
+    if (!turfFormData.serviceFor) return false;
+    if (!primaryImage) return false; // Image is required
+    return true;
+  };
 
   // Fetch staff when modal opens
   const fetchStaff = async () => {
@@ -322,15 +335,17 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
           ? 'male'
           : 'female';
 
-      // Prepare turf service data
+      // Prepare turf service data with correct field names for backend
       const serviceData = {
         category: 'turf',
         serviceName: turfFormData.serviceName!.trim(),
-        serviceDurationInMinutes: turfFormData.serviceDurationInMinutes!,
+        sportType: turfFormData.sportType!, // required
+        slotDurationInMinutes: turfFormData.serviceDurationInMinutes!, // renamed
         bufferTimeInMinutes: turfFormData.bufferTimeInMinutes!,
-        price: turfFormData.price!,
+        pricePerSlot: turfFormData.price!, // renamed
         priceUnitLabel: 'per person',
-        serviceFor: serviceForValue,
+        maxPlayers: turfFormData.maximumPlayers!, // renamed
+        allowedGenders: serviceForValue, // renamed from serviceFor
         amenities: turfFormData.amenities || [],
       };
 
@@ -738,7 +753,6 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
               </TouchableOpacity>
               <Text style={styles.headerTitle}>{isEditMode ? 'Edit Service' : 'Add Service'}</Text>
             </View>
-            <PageIndicators totalSteps={3} currentStep={step} />
           </View>
 
           {/* Content */}
@@ -764,9 +778,11 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                     <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
                     
                     {/* Images */}
-                    <Text style={styles.sectionTitle}>Service Image</Text>
+                    <Text style={styles.sectionTitle}>
+                      Service Image<Text style={styles.asterisk}> *</Text>
+                    </Text>
                     <Text style={styles.imagesInstruction}>
-                      Upload service image
+                      Upload service image (required)
                     </Text>
 
                     {/* Primary Image Upload */}
@@ -1193,7 +1209,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                 onPress={handleContinue}
                 disabled={
                   isTurfCategory()
-                    ? savingService
+                    ? !isTurfFormValid() || savingService
                     : step === 0
                     ? !isDetailsStepValid
                     : step === 1
