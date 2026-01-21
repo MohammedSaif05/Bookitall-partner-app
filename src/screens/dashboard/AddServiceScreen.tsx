@@ -31,7 +31,7 @@ import BackIcon from '../../assets/svg/icons/back.svg';
 import InfoIcon from '../../assets/svg/icons/info.svg';
 import UploadDocumentIcon from '../../assets/svg/icons/upload_document.svg';
 import { OnboardingCTAButton, OnboardingDropdownField } from '../../components/onboarding';
-import { TurfServiceForm, type TurfServiceFormData } from '../../components/serviceForms';
+import { TurfServiceForm, type TurfServiceFormData, SaloonServiceForm, type SaloonServiceFormData, SwimmingPoolServiceForm, type SwimmingPoolServiceFormData } from '../../components/serviceForms';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { vendorService, type StaffMember, type VendorData } from '../../services/api/vendor.service';
 import { userStorage } from '../../utils/storage';
@@ -136,8 +136,36 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
 
   // Check if we should use category-based form (e.g., Turf)
   const isTurfCategory = () => {
+    // Check editService category first (for edit mode)
+    if (editService?.category) {
+      return editService.category.toLowerCase() === 'turf';
+    }
+    // Check vendorData business category (for add mode)
     if (!vendorData?.businessCategory) return false;
     return vendorData.businessCategory.toLowerCase() === 'turf';
+  };
+
+  // Check if we should use category-based form (e.g., Saloon)
+  const isSaloonCategory = () => {
+    // Check editService category first (for edit mode)
+    if (editService?.category) {
+      return editService.category.toLowerCase() === 'saloon';
+    }
+    // Check vendorData business category (for add mode)
+    if (!vendorData?.businessCategory) return false;
+    return vendorData.businessCategory.toLowerCase() === 'saloon';
+  };
+
+  // Check if we should use category-based form (e.g., Swimming Pool)
+  const isSwimmingPoolCategory = () => {
+    // Check editService category first (for edit mode)
+    if (editService?.category) {
+      return editService.category.toLowerCase() === 'swimming-pool' || editService.category.toLowerCase() === 'swimming pool';
+    }
+    // Check vendorData business category (for add mode)
+    if (!vendorData?.businessCategory) return false;
+    const businessCategory = vendorData.businessCategory.toLowerCase();
+    return businessCategory === 'swimming-pool' || businessCategory === 'swimming pool';
   };
 
   // Turf service form data - initialize from editService if in edit mode and category is turf
@@ -159,9 +187,94 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   });
   const [turfFormErrors, setTurfFormErrors] = useState<Partial<Record<keyof TurfServiceFormData, string>>>({});
 
+  // Saloon service form data - initialize from editService if in edit mode and category is saloon
+  const [saloonFormData, setSaloonFormData] = useState<Partial<SaloonServiceFormData>>(() => {
+    if (editService && editService.category === 'saloon') {
+      // Map editService fields to saloon form data (using correct API response fields)
+      // Handle serviceFor: API returns 'male'|'female'|'mixed', form uses 'male'|'female'|'both'
+      let serviceForValue: 'male' | 'female' | 'both' = 'both';
+      if (editService.serviceFor) {
+        serviceForValue = editService.serviceFor === 'mixed' ? 'both' : (editService.serviceFor as 'male' | 'female' | 'both');
+      } else if (editService.gender) {
+        serviceForValue = editService.gender === 'mixed' ? 'both' : (editService.gender as 'male' | 'female' | 'both');
+      }
+
+      return {
+        serviceName: editService.serviceName || '',
+        serviceDurationInMinutes: editService.serviceDurationInMinutes || editService.serviceDuration || 0,
+        bufferTimeInMinutes: editService.bufferTimeInMinutes || editService.bufferTime || 0,
+        price: editService.price || editService.serviceCost || 0,
+        serviceFor: serviceForValue,
+        maxConcurrentBookings: editService.maxConcurrentBookings || editService.maximumNo || 0,
+        assignedStaff: editService.assignedStaff || [],
+        categoryLabel: (editService as any).categoryLabel,
+      };
+    }
+    return {};
+  });
+  const [saloonFormErrors, setSaloonFormErrors] = useState<Partial<Record<keyof SaloonServiceFormData, string>>>({});
+
+  // Swimming Pool service form data - initialize from editService if in edit mode and category is swimming-pool
+  const [swimmingPoolFormData, setSwimmingPoolFormData] = useState<Partial<SwimmingPoolServiceFormData>>(() => {
+    if (editService && (editService.category === 'swimming-pool' || editService.category === 'swimming pool')) {
+      // Map editService fields to swimming pool form data
+      // Handle allowedGenders: API returns 'male'|'female'|'mixed', form uses 'male'|'female'|'both'
+      let allowedGendersValue: 'male' | 'female' | 'both' = 'both';
+      if (editService.allowedGenders) {
+        allowedGendersValue = editService.allowedGenders === 'mixed' ? 'both' : (editService.allowedGenders as 'male' | 'female' | 'both');
+      } else if (editService.gender) {
+        allowedGendersValue = editService.gender === 'mixed' ? 'both' : (editService.gender as 'male' | 'female' | 'both');
+      }
+
+      return {
+        serviceName: editService.serviceName || '',
+        slotDurationInMinutes: editService.slotDurationInMinutes || editService.serviceDuration || 0,
+        bufferTimeInMinutes: editService.bufferTimeInMinutes || editService.bufferTime || 0,
+        pricePerPerson: (editService as any).pricePerPerson || editService.price || editService.serviceCost || 0,
+        maxCapacity: (editService as any).maxCapacity || editService.maximumNo || 0,
+        ageGroup: ((editService as any).ageGroup as 'adults' | 'children') || 'adults',
+        allowedGenders: allowedGendersValue,
+        dressCode: (editService as any).dressCode,
+        amenities: (editService as any).amenities || [],
+      };
+    }
+    return {};
+  });
+  const [swimmingPoolFormErrors, setSwimmingPoolFormErrors] = useState<Partial<Record<keyof SwimmingPoolServiceFormData, string>>>({});
+
   // Stable onChange to avoid infinite update loops (child useEffect depends on onChange)
   const handleTurfFormChange = useCallback((data: Partial<TurfServiceFormData>) => {
     setTurfFormData((prev) => {
+      // If nothing actually changed, keep previous object to avoid re-renders
+      const next = { ...prev, ...data };
+      const keys = Object.keys(next) as Array<keyof typeof next>;
+      for (const key of keys) {
+        if (prev[key] !== next[key]) {
+          return next;
+        }
+      }
+      return prev;
+    });
+  }, []);
+
+  // Stable onChange for saloon form
+  const handleSaloonFormChange = useCallback((data: Partial<SaloonServiceFormData>) => {
+    setSaloonFormData((prev) => {
+      // If nothing actually changed, keep previous object to avoid re-renders
+      const next = { ...prev, ...data };
+      const keys = Object.keys(next) as Array<keyof typeof next>;
+      for (const key of keys) {
+        if (prev[key] !== next[key]) {
+          return next;
+        }
+      }
+      return prev;
+    });
+  }, []);
+
+  // Stable onChange for swimming pool form
+  const handleSwimmingPoolFormChange = useCallback((data: Partial<SwimmingPoolServiceFormData>) => {
+    setSwimmingPoolFormData((prev) => {
       // If nothing actually changed, keep previous object to avoid re-renders
       const next = { ...prev, ...data };
       const keys = Object.keys(next) as Array<keyof typeof next>;
@@ -187,6 +300,31 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     if (!turfFormData.price || turfFormData.price <= 0) return false;
     if (!turfFormData.maximumPlayers || turfFormData.maximumPlayers <= 0) return false;
     if (!turfFormData.serviceFor) return false;
+    if (!primaryImage) return false; // Image is required
+    return true;
+  };
+
+  // Check if saloon form is valid (all fields filled + image selected)
+  const isSaloonFormValid = () => {
+    if (!saloonFormData.serviceName?.trim()) return false;
+    if (!saloonFormData.serviceDurationInMinutes || saloonFormData.serviceDurationInMinutes <= 0) return false;
+    if (saloonFormData.bufferTimeInMinutes === undefined || saloonFormData.bufferTimeInMinutes < 0) return false;
+    if (!saloonFormData.price || saloonFormData.price <= 0) return false;
+    if (!saloonFormData.serviceFor) return false;
+    if (!saloonFormData.maxConcurrentBookings || saloonFormData.maxConcurrentBookings <= 0) return false;
+    if (!primaryImage) return false; // Image is required
+    return true;
+  };
+
+  // Check if swimming pool form is valid (all fields filled + image selected)
+  const isSwimmingPoolFormValid = () => {
+    if (!swimmingPoolFormData.serviceName?.trim()) return false;
+    if (!swimmingPoolFormData.slotDurationInMinutes || swimmingPoolFormData.slotDurationInMinutes <= 0) return false;
+    if (swimmingPoolFormData.bufferTimeInMinutes === undefined || swimmingPoolFormData.bufferTimeInMinutes < 0) return false;
+    if (!swimmingPoolFormData.pricePerPerson || swimmingPoolFormData.pricePerPerson <= 0) return false;
+    if (!swimmingPoolFormData.maxCapacity || swimmingPoolFormData.maxCapacity <= 0) return false;
+    if (!swimmingPoolFormData.ageGroup) return false;
+    if (!swimmingPoolFormData.allowedGenders) return false;
     if (!primaryImage) return false; // Image is required
     return true;
   };
@@ -270,6 +408,18 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     // For turf category, we use a single-step form
     if (isTurfCategory()) {
       handleSaveTurfService();
+      return;
+    }
+
+    // For saloon category, we use a single-step form
+    if (isSaloonCategory()) {
+      handleSaveSaloonService();
+      return;
+    }
+
+    // For swimming pool category, we use a single-step form
+    if (isSwimmingPoolCategory()) {
+      handleSaveSwimmingPoolService();
       return;
     }
 
@@ -500,6 +650,424 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         // eslint-disable-next-line no-console
         console.log(
           'Add turf service API error:',
+          JSON.stringify(axiosError.response?.data ?? error, null, 2)
+        );
+      }
+
+      showError(errorMessage);
+    } finally {
+      setSavingService(false);
+    }
+  };
+
+  const handleSaveSaloonService = async () => {
+    // Validate saloon form data
+    const errors: Partial<Record<keyof SaloonServiceFormData, string>> = {};
+    
+    if (!saloonFormData.serviceName?.trim()) {
+      errors.serviceName = 'Please enter service name';
+    }
+    if (!saloonFormData.serviceDurationInMinutes || saloonFormData.serviceDurationInMinutes <= 0) {
+      errors.serviceDurationInMinutes = 'Please enter valid service duration';
+    }
+    if (saloonFormData.bufferTimeInMinutes === undefined || saloonFormData.bufferTimeInMinutes < 0) {
+      errors.bufferTimeInMinutes = 'Please enter valid buffer time';
+    }
+    if (!saloonFormData.price || saloonFormData.price <= 0) {
+      errors.price = 'Please enter valid price';
+    }
+    if (!saloonFormData.serviceFor) {
+      errors.serviceFor = 'Please select service for';
+    }
+    if (!saloonFormData.maxConcurrentBookings || saloonFormData.maxConcurrentBookings <= 0) {
+      errors.maxConcurrentBookings = 'Please enter valid max concurrent bookings';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setSaloonFormErrors(errors);
+      return;
+    }
+
+    setSaloonFormErrors({});
+
+    try {
+      setSavingService(true);
+      const userId = await userStorage.getUserId();
+      
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        setSavingService(false);
+        return;
+      }
+
+      // Convert "both" to "mixed" for serviceFor
+      const serviceForValue: 'male' | 'female' | 'mixed' = 
+        saloonFormData.serviceFor === 'both' || saloonFormData.serviceFor === 'mixed'
+          ? 'mixed'
+          : saloonFormData.serviceFor === 'male'
+          ? 'male'
+          : 'female';
+
+      // Prepare saloon service data
+      const serviceData = {
+        category: 'saloon',
+        serviceName: saloonFormData.serviceName!.trim(),
+        serviceDurationInMinutes: saloonFormData.serviceDurationInMinutes!,
+        bufferTimeInMinutes: saloonFormData.bufferTimeInMinutes!,
+        price: saloonFormData.price!,
+        priceUnitLabel: 'per person',
+        serviceFor: serviceForValue,
+        maxConcurrentBookings: saloonFormData.maxConcurrentBookings!,
+        assignedStaff: saloonFormData.assignedStaff || [],
+        categoryLabel: saloonFormData.categoryLabel,
+      };
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Adding saloon service with payload:',
+          JSON.stringify(serviceData, null, 2)
+        );
+      }
+
+      if (isEditMode) {
+        // EDIT MODE: Update existing saloon service
+        if (!serviceId || serviceId.trim() === '') {
+          showError('Service ID not found. Cannot update service.');
+          setSavingService(false);
+          return;
+        }
+
+        const response = await vendorService.updateSaloonService(
+          userId,
+          serviceId,
+          serviceData
+        );
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Update saloon service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to update service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Update image if it changed
+        if (primaryImage && primaryImage !== originalImageUri) {
+          try {
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.log('Updating image for serviceId:', serviceId);
+            }
+            const imageResponse = await vendorService.updateServiceImage(
+              userId,
+              serviceId,
+              primaryImage
+            );
+
+            if (imageResponse.success) {
+              if (__DEV__) {
+                // eslint-disable-next-line no-console
+                console.log('Image updated successfully');
+              }
+            } else {
+              if (__DEV__) {
+                console.warn('Image update failed, but service was updated');
+              }
+            }
+          } catch (imageError) {
+            if (__DEV__) {
+              console.error('Image update error:', imageError);
+            }
+          }
+        }
+
+        showSuccess('Service updated successfully!');
+        navigation.navigate('Services');
+      } else {
+        // ADD MODE: Create new saloon service
+        const response = await vendorService.addSaloonService(userId, serviceData);
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Add saloon service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to add service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Upload image if provided
+        if (primaryImage && response.data) {
+          const responseData = response.data as any;
+          let newServiceId: string | undefined;
+          
+          // Extract serviceId from response
+          if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+            const lastService = responseData.services[responseData.services.length - 1];
+            newServiceId = lastService.serviceId;
+          } else if (responseData.serviceId) {
+            newServiceId = responseData.serviceId;
+          }
+          
+          if (newServiceId) {
+            try {
+              // Delay to ensure service is fully saved
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+              
+              const imageResponse = await vendorService.uploadServiceImage(
+                userId,
+                newServiceId,
+                primaryImage
+              );
+
+              if (!imageResponse.success) {
+                if (__DEV__) {
+                  console.warn('Image upload failed, but service was created');
+                }
+              }
+            } catch (imageError) {
+              if (__DEV__) {
+                console.error('Image upload error:', imageError);
+              }
+            }
+          }
+        }
+
+        showSuccess('Service added successfully!');
+        navigation.navigate('Services');
+      }
+    } catch (error) {
+      const axiosError = error as CustomAxiosError;
+      const errorMessage =
+        axiosError.response?.data?.message || 'Failed to add service. Please try again.';
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Add saloon service API error:',
+          JSON.stringify(axiosError.response?.data ?? error, null, 2)
+        );
+      }
+
+      showError(errorMessage);
+    } finally {
+      setSavingService(false);
+    }
+  };
+
+  const handleSaveSwimmingPoolService = async () => {
+    // Validate swimming pool form data
+    const errors: Partial<Record<keyof SwimmingPoolServiceFormData, string>> = {};
+    
+    if (!swimmingPoolFormData.serviceName?.trim()) {
+      errors.serviceName = 'Please enter service name';
+    }
+    if (!swimmingPoolFormData.slotDurationInMinutes || swimmingPoolFormData.slotDurationInMinutes <= 0) {
+      errors.slotDurationInMinutes = 'Please enter valid slot duration';
+    }
+    if (swimmingPoolFormData.bufferTimeInMinutes === undefined || swimmingPoolFormData.bufferTimeInMinutes < 0) {
+      errors.bufferTimeInMinutes = 'Please enter valid buffer time';
+    }
+    if (!swimmingPoolFormData.pricePerPerson || swimmingPoolFormData.pricePerPerson <= 0) {
+      errors.pricePerPerson = 'Please enter valid price per person';
+    }
+    if (!swimmingPoolFormData.maxCapacity || swimmingPoolFormData.maxCapacity <= 0) {
+      errors.maxCapacity = 'Please enter valid max capacity';
+    }
+    if (!swimmingPoolFormData.ageGroup) {
+      errors.ageGroup = 'Please select age group';
+    }
+    if (!swimmingPoolFormData.allowedGenders) {
+      errors.allowedGenders = 'Please select allowed genders';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setSwimmingPoolFormErrors(errors);
+      return;
+    }
+
+    setSwimmingPoolFormErrors({});
+
+    try {
+      setSavingService(true);
+      const userId = await userStorage.getUserId();
+      
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        setSavingService(false);
+        return;
+      }
+
+      // Convert "both" to "mixed" for allowedGenders
+      const allowedGendersValue: 'male' | 'female' | 'mixed' = 
+        swimmingPoolFormData.allowedGenders === 'both' || swimmingPoolFormData.allowedGenders === 'mixed'
+          ? 'mixed'
+          : swimmingPoolFormData.allowedGenders === 'male'
+          ? 'male'
+          : 'female';
+
+      // Prepare swimming pool service data
+      const serviceData = {
+        category: 'swimming-pool',
+        serviceName: swimmingPoolFormData.serviceName!.trim(),
+        slotDurationInMinutes: swimmingPoolFormData.slotDurationInMinutes!,
+        bufferTimeInMinutes: swimmingPoolFormData.bufferTimeInMinutes!,
+        pricePerPerson: swimmingPoolFormData.pricePerPerson!,
+        priceUnitLabel: 'per person',
+        maxCapacity: swimmingPoolFormData.maxCapacity!,
+        ageGroup: swimmingPoolFormData.ageGroup!,
+        allowedGenders: allowedGendersValue,
+        dressCode: swimmingPoolFormData.dressCode,
+        amenities: swimmingPoolFormData.amenities || [],
+      };
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Adding swimming pool service with payload:',
+          JSON.stringify(serviceData, null, 2)
+        );
+      }
+
+      if (isEditMode) {
+        // EDIT MODE: Update existing swimming pool service
+        if (!serviceId || serviceId.trim() === '') {
+          showError('Service ID not found. Cannot update service.');
+          setSavingService(false);
+          return;
+        }
+
+        const response = await vendorService.updateSwimmingPoolService(
+          userId,
+          serviceId,
+          serviceData
+        );
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Update swimming pool service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to update service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Update image if it changed
+        if (primaryImage && primaryImage !== originalImageUri) {
+          try {
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.log('Updating image for serviceId:', serviceId);
+            }
+            const imageResponse = await vendorService.updateServiceImage(
+              userId,
+              serviceId,
+              primaryImage
+            );
+
+            if (imageResponse.success) {
+              if (__DEV__) {
+                // eslint-disable-next-line no-console
+                console.log('Image updated successfully');
+              }
+            } else {
+              if (__DEV__) {
+                console.warn('Image update failed, but service was updated');
+              }
+            }
+          } catch (imageError) {
+            if (__DEV__) {
+              console.error('Image update error:', imageError);
+            }
+          }
+        }
+
+        showSuccess('Service updated successfully!');
+        navigation.navigate('Services');
+      } else {
+        // ADD MODE: Create new swimming pool service
+        const response = await vendorService.addSwimmingPoolService(userId, serviceData);
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Add swimming pool service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to add service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Upload image if provided
+        if (primaryImage && response.data) {
+          const responseData = response.data as any;
+          let newServiceId: string | undefined;
+          
+          // Extract serviceId from response
+          if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+            const lastService = responseData.services[responseData.services.length - 1];
+            newServiceId = lastService.serviceId;
+          } else if (responseData.serviceId) {
+            newServiceId = responseData.serviceId;
+          }
+          
+          if (newServiceId) {
+            try {
+              // Delay to ensure service is fully saved
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+              
+              const imageResponse = await vendorService.uploadServiceImage(
+                userId,
+                newServiceId,
+                primaryImage
+              );
+
+              if (!imageResponse.success) {
+                if (__DEV__) {
+                  console.warn('Image upload failed, but service was created');
+                }
+              }
+            } catch (imageError) {
+              if (__DEV__) {
+                console.error('Image upload error:', imageError);
+              }
+            }
+          }
+        }
+
+        showSuccess('Service added successfully!');
+        navigation.navigate('Services');
+      }
+    } catch (error) {
+      const axiosError = error as CustomAxiosError;
+      const errorMessage =
+        axiosError.response?.data?.message || 'Failed to add service. Please try again.';
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Add swimming pool service API error:',
           JSON.stringify(axiosError.response?.data ?? error, null, 2)
         );
       }
@@ -854,6 +1422,115 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                       initialData={turfFormData}
                       onChange={handleTurfFormChange}
                       errors={turfFormErrors}
+                    />
+                    
+                    <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
+                    
+                    {/* Images */}
+                    <Text style={styles.sectionTitle}>
+                      Service Image<Text style={styles.asterisk}> *</Text>
+                    </Text>
+                    <Text style={styles.imagesInstruction}>
+                      Upload service image (required)
+                    </Text>
+
+                    {/* Primary Image Upload */}
+                    <TouchableOpacity
+                      style={styles.imageUploadArea}
+                      activeOpacity={0.8}
+                      onPress={handleImageUpload}
+                    >
+                      {primaryImage ? (
+                        <Image source={{ uri: primaryImage }} style={styles.uploadedImage} />
+                      ) : (
+                        <View style={styles.imageUploadContent}>
+                          <View style={styles.uploadIconContainer}>
+                            <UploadDocumentIcon
+                              width={hs(48)}
+                              height={vs(48)}
+                              stroke={colors.text.secondary}
+                            />
+                          </View>
+                          <Text style={styles.uploadText}>Upload Image</Text>
+                          <Text style={styles.uploadHint}>
+                            Tap to select an image from your gallery
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+              </ScrollView>
+            ) : isSaloonCategory() ? (
+              // Saloon category form - single step
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
+                bounces={true}
+              >
+                    <Text style={styles.sectionTitle}>Service Details</Text>
+                    <SaloonServiceForm
+                      initialData={saloonFormData}
+                      onChange={handleSaloonFormChange}
+                      errors={saloonFormErrors}
+                      staffList={staffList}
+                      onFetchStaff={fetchStaff}
+                      loadingStaff={loadingStaff}
+                    />
+                    
+                    <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
+                    
+                    {/* Images */}
+                    <Text style={styles.sectionTitle}>
+                      Service Image<Text style={styles.asterisk}> *</Text>
+                    </Text>
+                    <Text style={styles.imagesInstruction}>
+                      Upload service image (required)
+                    </Text>
+
+                    {/* Primary Image Upload */}
+                    <TouchableOpacity
+                      style={styles.imageUploadArea}
+                      activeOpacity={0.8}
+                      onPress={handleImageUpload}
+                    >
+                      {primaryImage ? (
+                        <Image source={{ uri: primaryImage }} style={styles.uploadedImage} />
+                      ) : (
+                        <View style={styles.imageUploadContent}>
+                          <View style={styles.uploadIconContainer}>
+                            <UploadDocumentIcon
+                              width={hs(48)}
+                              height={vs(48)}
+                              stroke={colors.text.secondary}
+                            />
+                          </View>
+                          <Text style={styles.uploadText}>Upload Image</Text>
+                          <Text style={styles.uploadHint}>
+                            Tap to select an image from your gallery
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+              </ScrollView>
+            ) : isSwimmingPoolCategory() ? (
+              // Swimming Pool category form - single step
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
+                bounces={true}
+              >
+                    <Text style={styles.sectionTitle}>Service Details</Text>
+                    <SwimmingPoolServiceForm
+                      initialData={swimmingPoolFormData}
+                      onChange={handleSwimmingPoolFormChange}
+                      errors={swimmingPoolFormErrors}
                     />
                     
                     <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
@@ -1271,13 +1948,13 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                 onPress={handleCancel}
               >
                 <Text style={styles.cancelButtonText}>
-                  {isTurfCategory() ? 'Cancel' : step === 0 ? 'Cancel' : 'Back'}
+                  {isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory() ? 'Cancel' : step === 0 ? 'Cancel' : 'Back'}
                 </Text>
               </TouchableOpacity>
 
               <OnboardingCTAButton
                 label={
-                  isTurfCategory()
+                  isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory()
                     ? isEditMode
                       ? 'Update Service'
                       : 'Save Service'
@@ -1291,6 +1968,10 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                 disabled={
                   isTurfCategory()
                     ? !isTurfFormValid() || savingService
+                    : isSaloonCategory()
+                    ? !isSaloonFormValid() || savingService
+                    : isSwimmingPoolCategory()
+                    ? !isSwimmingPoolFormValid() || savingService
                     : step === 0
                     ? !isDetailsStepValid
                     : step === 1

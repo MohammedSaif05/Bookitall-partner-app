@@ -170,6 +170,17 @@ export interface Service {
   amenities?: string[]; // For turf services
   priceUnitLabel?: string; // For turf services
   bufferTimeInMinutes?: number; // For turf services
+  // Saloon-specific fields
+  serviceDurationInMinutes?: number; // For saloon services
+  price?: number; // For saloon services
+  maxConcurrentBookings?: number; // For saloon services
+  categoryLabel?: string; // For saloon services
+  serviceFor?: string; // For saloon services (male/female/mixed)
+  // Swimming Pool-specific fields
+  pricePerPerson?: number; // For swimming pool services
+  maxCapacity?: number; // For swimming pool services
+  ageGroup?: 'adults' | 'children'; // For swimming pool services
+  dressCode?: string; // For swimming pool services
 }
 
 /**
@@ -637,6 +648,266 @@ class VendorService {
         priceUnitLabel: serviceData.priceUnitLabel || 'per person',
         maxPlayers: serviceData.maxPlayers,
         allowedGenders: serviceData.allowedGenders,
+        ...(serviceData.amenities && serviceData.amenities.length > 0 && {
+          amenities: serviceData.amenities,
+        }),
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.UPDATE_SERVICE_JSON}/${userId}/update-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Add saloon service
+   * @param userId - User ID
+   * @param serviceData - Saloon service data
+   * @returns Promise with add service response
+   */
+  async addSaloonService(
+    userId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      serviceDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      price: number;
+      priceUnitLabel: string;
+      serviceFor: 'male' | 'female' | 'mixed';
+      maxConcurrentBookings: number;
+      assignedStaff?: string[];
+      categoryLabel?: string;
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate serviceData is not null/undefined
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload matching backend contract: wrap inside `service`
+      const payload = {
+        service: {
+          category: serviceData.category,
+          serviceName: serviceData.serviceName.trim(),
+          serviceDurationInMinutes: serviceData.serviceDurationInMinutes,
+          bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+          price: serviceData.price,
+          priceUnitLabel: serviceData.priceUnitLabel,
+          serviceFor: serviceData.serviceFor,
+          maxConcurrentBookings: serviceData.maxConcurrentBookings,
+          ...(serviceData.assignedStaff && serviceData.assignedStaff.length > 0 && {
+            assignedStaff: serviceData.assignedStaff,
+          }),
+          ...(serviceData.categoryLabel && {
+            categoryLabel: serviceData.categoryLabel,
+          }),
+        },
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/add-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Update saloon service
+   * @param userId - User ID
+   * @param serviceId - Service ID to update
+   * @param serviceData - Updated saloon service data
+   * @returns Promise with update response
+   */
+  async updateSaloonService(
+    userId: string,
+    serviceId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      serviceDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      price: number;
+      priceUnitLabel: string;
+      serviceFor: 'male' | 'female' | 'mixed';
+      maxConcurrentBookings: number;
+      assignedStaff?: string[];
+      categoryLabel?: string;
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload with userId, serviceId, and service data
+      const payload = {
+        userId,
+        serviceId,
+        category: serviceData.category,
+        serviceName: serviceData.serviceName.trim(),
+        serviceDurationInMinutes: serviceData.serviceDurationInMinutes,
+        bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+        price: serviceData.price,
+        priceUnitLabel: serviceData.priceUnitLabel,
+        serviceFor: serviceData.serviceFor,
+        maxConcurrentBookings: serviceData.maxConcurrentBookings,
+        ...(serviceData.assignedStaff && serviceData.assignedStaff.length > 0 && {
+          assignedStaff: serviceData.assignedStaff,
+        }),
+        ...(serviceData.categoryLabel && {
+          categoryLabel: serviceData.categoryLabel,
+        }),
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.UPDATE_SERVICE_JSON}/${userId}/update-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Add swimming pool service
+   * @param userId - User ID
+   * @param serviceData - Swimming pool service data
+   * @returns Promise with add service response
+   */
+  async addSwimmingPoolService(
+    userId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      slotDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      pricePerPerson: number;
+      priceUnitLabel: string;
+      maxCapacity: number;
+      ageGroup: 'adults' | 'children';
+      allowedGenders: 'male' | 'female' | 'mixed';
+      dressCode?: string;
+      amenities?: string[];
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate serviceData is not null/undefined
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload matching backend contract: wrap inside `service`
+      const payload = {
+        service: {
+          category: serviceData.category,
+          serviceName: serviceData.serviceName.trim(),
+          slotDurationInMinutes: serviceData.slotDurationInMinutes,
+          bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+          pricePerPerson: serviceData.pricePerPerson,
+          priceUnitLabel: serviceData.priceUnitLabel,
+          maxCapacity: serviceData.maxCapacity,
+          ageGroup: serviceData.ageGroup,
+          allowedGenders: serviceData.allowedGenders,
+          ...(serviceData.dressCode && {
+            dressCode: serviceData.dressCode,
+          }),
+          ...(serviceData.amenities && serviceData.amenities.length > 0 && {
+            amenities: serviceData.amenities,
+          }),
+        },
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/add-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Update swimming pool service
+   * @param userId - User ID
+   * @param serviceId - Service ID to update
+   * @param serviceData - Updated swimming pool service data
+   * @returns Promise with update response
+   */
+  async updateSwimmingPoolService(
+    userId: string,
+    serviceId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      slotDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      pricePerPerson: number;
+      priceUnitLabel: string;
+      maxCapacity: number;
+      ageGroup: 'adults' | 'children';
+      allowedGenders: 'male' | 'female' | 'mixed';
+      dressCode?: string;
+      amenities?: string[];
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload with userId, serviceId, and service data
+      const payload = {
+        userId,
+        serviceId,
+        category: serviceData.category,
+        serviceName: serviceData.serviceName.trim(),
+        slotDurationInMinutes: serviceData.slotDurationInMinutes,
+        bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+        pricePerPerson: serviceData.pricePerPerson,
+        priceUnitLabel: serviceData.priceUnitLabel,
+        maxCapacity: serviceData.maxCapacity,
+        ageGroup: serviceData.ageGroup,
+        allowedGenders: serviceData.allowedGenders,
+        ...(serviceData.dressCode && {
+          dressCode: serviceData.dressCode,
+        }),
         ...(serviceData.amenities && serviceData.amenities.length > 0 && {
           amenities: serviceData.amenities,
         }),

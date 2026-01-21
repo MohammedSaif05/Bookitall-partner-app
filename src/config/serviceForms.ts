@@ -50,6 +50,51 @@ export const TURF_AMENITIES = [
 ] as const;
 
 /**
+ * Category labels for Saloon services
+ */
+export const SALOON_CATEGORY_LABELS = [
+  'Hair',
+  'Haircut',
+  'Hair Color',
+  'Hair Treatment',
+  'Hair Styling',
+  'Beard',
+  'Facial',
+  'Massage',
+  'Manicure',
+  'Pedicure',
+  'Waxing',
+  'Threading',
+  'Makeup',
+  'Bridal',
+  'Other',
+] as const;
+
+/**
+ * Age group options for Swimming Pool services
+ */
+export const AGE_GROUP_OPTIONS: Array<{ label: string; value: string }> = [
+  { label: 'Adults', value: 'adults' },
+  { label: 'Children', value: 'children' },
+];
+
+/**
+ * Common amenities for Swimming Pool services
+ */
+export const SWIMMING_POOL_AMENITIES = [
+  'Locker',
+  'Shower',
+  'Changing Room',
+  'Towel Service',
+  'Parking',
+  'Cafeteria',
+  'First Aid',
+  'Lifeguard',
+  'Pool Equipment',
+  'WiFi',
+] as const;
+
+/**
  * Service Form Field Configuration
  */
 export interface ServiceFormField {
