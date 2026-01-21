@@ -1,0 +1,151 @@
+/**
+ * Service Form Configurations
+ * Category-based service form field definitions
+ * 
+ * @format
+ */
+
+/**
+ * Sport types for Turf category
+ */
+export const SPORT_TYPES = [
+  'Cricket',
+  'Football',
+  'Tennis',
+  'Basketball',
+  'Volleyball',
+  'Badminton',
+  'Squash',
+  'Table Tennis',
+  'Hockey',
+  'Baseball',
+  'Rugby',
+  'Other',
+] as const;
+
+/**
+ * Gender options for services
+ */
+export const GENDER_OPTIONS: Array<{ label: string; value: string }> = [
+  { label: 'Male', value: 'male' },
+  { label: 'Female', value: 'female' },
+  { label: 'Both', value: 'both' },
+];
+
+/**
+ * Common amenities for Turf services
+ * This can be expanded or fetched from API later
+ */
+export const TURF_AMENITIES = [
+  'Parking',
+  'Changing Room',
+  'Washroom',
+  'Water Facility',
+  'Lighting',
+  'Seating Area',
+  'Cafeteria',
+  'First Aid',
+  'Equipment Rental',
+  'WiFi',
+] as const;
+
+/**
+ * Service Form Field Configuration
+ */
+export interface ServiceFormField {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'dropdown' | 'multiselect';
+  required: boolean;
+  placeholder?: string;
+  options?: readonly string[] | Array<{ label: string; value: string }>;
+}
+
+/**
+ * Category-based Service Form Configuration
+ */
+export interface CategoryServiceFormConfig {
+  categorySlug: string;
+  fields: ServiceFormField[];
+  defaultValues?: Record<string, unknown>;
+}
+
+/**
+ * Turf Service Form Configuration
+ */
+export const TURF_SERVICE_FORM_CONFIG: CategoryServiceFormConfig = {
+  categorySlug: 'turf',
+  fields: [
+    {
+      key: 'serviceName',
+      label: 'Service Name',
+      type: 'text',
+      required: true,
+      placeholder: 'Enter service name',
+    },
+    {
+      key: 'sportType',
+      label: 'Sport Type',
+      type: 'dropdown',
+      required: true,
+      placeholder: 'Select sport type',
+      options: SPORT_TYPES,
+    },
+    {
+      key: 'serviceDurationInMinutes',
+      label: 'Slot Duration (minutes)',
+      type: 'number',
+      required: true,
+      placeholder: 'Enter duration in minutes',
+    },
+    {
+      key: 'bufferTimeInMinutes',
+      label: 'Buffer Time (minutes)',
+      type: 'number',
+      required: true,
+      placeholder: 'Enter buffer time in minutes',
+    },
+    {
+      key: 'price',
+      label: 'Price per Slot',
+      type: 'number',
+      required: true,
+      placeholder: 'Enter price',
+    },
+    {
+      key: 'maximumPlayers',
+      label: 'Maximum Players',
+      type: 'number',
+      required: true,
+      placeholder: 'Enter maximum players',
+    },
+    {
+      key: 'serviceFor',
+      label: 'Allowed Genders',
+      type: 'dropdown',
+      required: true,
+      placeholder: 'Select allowed genders',
+      options: GENDER_OPTIONS,
+    },
+    {
+      key: 'amenities',
+      label: 'Amenities',
+      type: 'multiselect',
+      required: false,
+      placeholder: 'Select amenities',
+      options: TURF_AMENITIES,
+    },
+  ],
+  defaultValues: {
+    priceUnitLabel: 'per person',
+  },
+};
+
+/**
+ * Map of category slug to form configuration
+ */
+export const SERVICE_FORM_CONFIGS: Record<string, CategoryServiceFormConfig> = {
+  turf: TURF_SERVICE_FORM_CONFIG,
+  // Add more category configs here as needed
+};
+

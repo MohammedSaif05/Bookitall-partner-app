@@ -27,6 +27,7 @@ export type {
   StaffMember,
   Service,
   ServicesResponseData,
+  Category,
 } from './vendor.service';
 export * from './auth.service';
 

@@ -446,7 +446,7 @@ const handleLocationError = (
 /**
  * Google Maps Geocoding API Key
  */
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBHk94v2evHb1oeKqDYdp0FSImI36YWnyE';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyAUnTFT7jPdmvUmONxw5qHidR8lQnJ7UyY';
 
 /**
  * Reverse geocode coordinates to get address details

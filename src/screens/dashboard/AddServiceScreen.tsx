@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,6 @@ import {
   Dimensions,
   PermissionsAndroid,
   Alert,
-  TouchableWithoutFeedback,
 } from 'react-native';
 import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +31,7 @@ import BackIcon from '../../assets/svg/icons/back.svg';
 import InfoIcon from '../../assets/svg/icons/info.svg';
 import UploadDocumentIcon from '../../assets/svg/icons/upload_document.svg';
 import { PageIndicators, OnboardingCTAButton, OnboardingDropdownField } from '../../components/onboarding';
+import { TurfServiceForm, type TurfServiceFormData } from '../../components/serviceForms';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { vendorService, type StaffMember, type VendorData } from '../../services/api/vendor.service';
 import { userStorage } from '../../utils/storage';
@@ -134,6 +134,31 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     return businessCategory === 'turf' || businessCategory === 'swimming pool';
   };
 
+  // Check if we should use category-based form (e.g., Turf)
+  const isTurfCategory = () => {
+    if (!vendorData?.businessCategory) return false;
+    return vendorData.businessCategory.toLowerCase() === 'turf';
+  };
+
+  // Turf service form data
+  const [turfFormData, setTurfFormData] = useState<Partial<TurfServiceFormData>>({});
+  const [turfFormErrors, setTurfFormErrors] = useState<Partial<Record<keyof TurfServiceFormData, string>>>({});
+
+  // Stable onChange to avoid infinite update loops (child useEffect depends on onChange)
+  const handleTurfFormChange = useCallback((data: Partial<TurfServiceFormData>) => {
+    setTurfFormData((prev) => {
+      // If nothing actually changed, keep previous object to avoid re-renders
+      const next = { ...prev, ...data };
+      const keys = Object.keys(next) as Array<keyof typeof next>;
+      for (const key of keys) {
+        if (prev[key] !== next[key]) {
+          return next;
+        }
+      }
+      return prev;
+    });
+  }, []);
+
   const isDetailsStepValid = serviceName.trim().length > 0 && !!category;
   const isPricingStepValid = price.trim().length > 0;
   const isCapacityStepValid = maxCustomers.trim().length > 0 && applicableTo.trim().length > 0;
@@ -214,6 +239,13 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   };
 
   const handleContinue = () => {
+    // For turf category, we use a single-step form
+    if (isTurfCategory()) {
+      handleSaveTurfService();
+      return;
+    }
+
+    // Regular multi-step flow for other categories
     if (step === 0) {
       if (!isDetailsStepValid) {
         return;
@@ -235,6 +267,150 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         return;
       }
       handleSaveService();
+    }
+  };
+
+  const handleSaveTurfService = async () => {
+    // Validate turf form data
+    const errors: Partial<Record<keyof TurfServiceFormData, string>> = {};
+    
+    if (!turfFormData.serviceName?.trim()) {
+      errors.serviceName = 'Please enter service name';
+    }
+    if (!turfFormData.sportType) {
+      errors.sportType = 'Please select sport type';
+    }
+    if (!turfFormData.serviceDurationInMinutes || turfFormData.serviceDurationInMinutes <= 0) {
+      errors.serviceDurationInMinutes = 'Please enter valid slot duration';
+    }
+    if (turfFormData.bufferTimeInMinutes === undefined || turfFormData.bufferTimeInMinutes < 0) {
+      errors.bufferTimeInMinutes = 'Please enter valid buffer time';
+    }
+    if (!turfFormData.price || turfFormData.price <= 0) {
+      errors.price = 'Please enter valid price';
+    }
+    if (!turfFormData.maximumPlayers || turfFormData.maximumPlayers <= 0) {
+      errors.maximumPlayers = 'Please enter valid maximum players';
+    }
+    if (!turfFormData.serviceFor) {
+      errors.serviceFor = 'Please select allowed genders';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setTurfFormErrors(errors);
+      return;
+    }
+
+    setTurfFormErrors({});
+
+    try {
+      setSavingService(true);
+      const userId = await userStorage.getUserId();
+      
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        setSavingService(false);
+        return;
+      }
+
+      // Convert "both" to "mixed" for serviceFor
+      // TurfServiceFormData allows 'both', but API expects 'mixed'
+      const serviceForValue: 'male' | 'female' | 'mixed' = 
+        turfFormData.serviceFor === 'both' || turfFormData.serviceFor === 'mixed'
+          ? 'mixed'
+          : turfFormData.serviceFor === 'male'
+          ? 'male'
+          : 'female';
+
+      // Prepare turf service data
+      const serviceData = {
+        category: 'turf',
+        serviceName: turfFormData.serviceName!.trim(),
+        serviceDurationInMinutes: turfFormData.serviceDurationInMinutes!,
+        bufferTimeInMinutes: turfFormData.bufferTimeInMinutes!,
+        price: turfFormData.price!,
+        priceUnitLabel: 'per person',
+        serviceFor: serviceForValue,
+        amenities: turfFormData.amenities || [],
+      };
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Adding turf service with payload:',
+          JSON.stringify(serviceData, null, 2)
+        );
+      }
+
+      // Call API to create turf service
+      const response = await vendorService.addCategoryService(userId, serviceData);
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Add turf service API response:',
+          JSON.stringify(response, null, 2)
+        );
+      }
+
+      if (!response.success) {
+        showError('Failed to add service. Please try again.');
+        setSavingService(false);
+        return;
+      }
+
+      // Upload image if provided
+      if (primaryImage && response.data) {
+        const responseData = response.data as any;
+        let newServiceId: string | undefined;
+        
+        // Extract serviceId from response
+        if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+          const lastService = responseData.services[responseData.services.length - 1];
+          newServiceId = lastService.serviceId;
+        } else if (responseData.serviceId) {
+          newServiceId = responseData.serviceId;
+        }
+        
+        if (newServiceId) {
+          try {
+            // Delay to ensure service is fully saved
+            await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+            
+            const imageResponse = await vendorService.uploadServiceImage(
+              userId,
+              newServiceId,
+              primaryImage
+            );
+
+            if (!imageResponse.success) {
+              console.warn('Image upload failed, but service was created');
+            }
+          } catch (imageError) {
+            console.error('Image upload error:', imageError);
+            // Don't show error - service was created successfully
+          }
+        }
+      }
+
+      showSuccess('Service added successfully!');
+      navigation.navigate('Services');
+    } catch (error) {
+      const axiosError = error as CustomAxiosError;
+      const errorMessage =
+        axiosError.response?.data?.message || 'Failed to add service. Please try again.';
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Add turf service API error:',
+          JSON.stringify(axiosError.response?.data ?? error, null, 2)
+        );
+      }
+
+      showError(errorMessage);
+    } finally {
+      setSavingService(false);
     }
   };
 
@@ -341,7 +517,10 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         // Step 2: Update image if it changed (new image selected)
         if (primaryImage && primaryImage !== originalImageUri) {
           try {
-            console.log('Updating image for serviceId:', serviceId);
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.log('Updating image for serviceId:', serviceId);
+            }
             const imageResponse = await vendorService.updateServiceImage(
               userId,
               serviceId,
@@ -349,13 +528,20 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
             );
 
             if (imageResponse.success) {
-              console.log('Image updated successfully');
+              if (__DEV__) {
+                // eslint-disable-next-line no-console
+                console.log('Image updated successfully');
+              }
             } else {
-              console.warn('Image update failed, but service was updated');
+              if (__DEV__) {
+                console.warn('Image update failed, but service was updated');
+              }
               // Don't show error - service was updated successfully
             }
           } catch (imageError) {
-            console.error('Image update error:', imageError);
+            if (__DEV__) {
+              console.error('Image update error:', imageError);
+            }
             // Don't show error - service was updated successfully
             // Image can be updated later if needed
           }
@@ -408,19 +594,29 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
               );
 
               if (imageResponse.success) {
-                console.log('Image uploaded successfully');
+                if (__DEV__) {
+                  // eslint-disable-next-line no-console
+                  console.log('Image uploaded successfully');
+                }
               } else {
-                console.warn('Image upload failed, but service was created');
+                if (__DEV__) {
+                  console.warn('Image upload failed, but service was created');
+                }
                 // Don't show error - service was created successfully
               }
             } catch (imageError) {
-              console.error('Image upload error:', imageError);
+              if (__DEV__) {
+                console.error('Image upload error:', imageError);
+              }
               // Don't show error - service was created successfully
               // Image can be uploaded later if needed
             }
           } else {
-            console.warn('ServiceId not found in response, skipping image upload');
-            console.log('Response data structure:', JSON.stringify(responseData, null, 2));
+            if (__DEV__) {
+              console.warn('ServiceId not found in response, skipping image upload');
+              // eslint-disable-next-line no-console
+              console.log('Response data structure:', JSON.stringify(responseData, null, 2));
+            }
           }
         }
 
@@ -529,35 +725,85 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <TouchableWithoutFeedback onPress={() => {
-          setShowCategoryTooltip(false);
-          setShowBufferTimeTooltip(false);
-          setShowMaxCustomersTooltip(false);
-          setShowApplicableToTooltip(false);
-        }}>
-          <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerLeft}>
-                <TouchableOpacity
-                  onPress={() => navigation.goBack()}
-                  style={styles.backButton}
-                  activeOpacity={0.7}
-                >
-                  <BackIcon width={hs(24)} height={vs(24)} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>{isEditMode ? 'Edit Service' : 'Add Service'}</Text>
-              </View>
-              <PageIndicators totalSteps={3} currentStep={step} />
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={styles.backButton}
+                activeOpacity={0.7}
+              >
+                <BackIcon width={hs(24)} height={vs(24)} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>{isEditMode ? 'Edit Service' : 'Add Service'}</Text>
             </View>
+            <PageIndicators totalSteps={3} currentStep={step} />
+          </View>
 
-            {/* Content */}
-            <View style={styles.content}>
+          {/* Content */}
+          <View style={styles.content}>
+            {isTurfCategory() ? (
+              // Turf category form - single step
               <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
+                bounces={true}
+              >
+                    <Text style={styles.sectionTitle}>Service Details</Text>
+                    <TurfServiceForm
+                      initialData={turfFormData}
+                      onChange={handleTurfFormChange}
+                      errors={turfFormErrors}
+                    />
+                    
+                    <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
+                    
+                    {/* Images */}
+                    <Text style={styles.sectionTitle}>Service Image</Text>
+                    <Text style={styles.imagesInstruction}>
+                      Upload service image
+                    </Text>
+
+                    {/* Primary Image Upload */}
+                    <TouchableOpacity
+                      style={styles.imageUploadArea}
+                      activeOpacity={0.8}
+                      onPress={handleImageUpload}
+                    >
+                      {primaryImage ? (
+                        <Image source={{ uri: primaryImage }} style={styles.uploadedImage} />
+                      ) : (
+                        <View style={styles.imageUploadContent}>
+                          <View style={styles.uploadIconContainer}>
+                            <UploadDocumentIcon
+                              width={hs(48)}
+                              height={vs(48)}
+                              stroke={colors.text.secondary}
+                            />
+                          </View>
+                          <Text style={styles.uploadText}>Upload Image</Text>
+                          <Text style={styles.uploadHint}>
+                            Tap to select an image from your gallery
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+              </ScrollView>
+            ) : (
+              // Regular multi-step form for other categories
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
+                bounces={true}
                 onScrollBeginDrag={() => {
                   setShowCategoryTooltip(false);
                   setShowBufferTimeTooltip(false);
@@ -565,7 +811,7 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                   setShowApplicableToTooltip(false);
                 }}
               >
-                {step === 0 ? (
+                  {step === 0 ? (
                   <>
                     <Text style={styles.sectionTitle}>Service Details</Text>
 
@@ -914,10 +1160,11 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                         </View>
                       )}
                     </TouchableOpacity>
-                  </>
-                )}
+                </>
+              )}
               </ScrollView>
-            </View>
+            )}
+          </View>
 
             {/* Footer Buttons */}
             <View style={styles.footer}>
@@ -927,15 +1174,27 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                 onPress={handleCancel}
               >
                 <Text style={styles.cancelButtonText}>
-                  {step === 0 ? 'Cancel' : 'Back'}
+                  {isTurfCategory() ? 'Cancel' : step === 0 ? 'Cancel' : 'Back'}
                 </Text>
               </TouchableOpacity>
 
               <OnboardingCTAButton
-                label={step === 2 ? (isEditMode ? 'Update Service' : 'Save Service') : 'Continue'}
+                label={
+                  isTurfCategory()
+                    ? isEditMode
+                      ? 'Update Service'
+                      : 'Save Service'
+                    : step === 2
+                    ? isEditMode
+                      ? 'Update Service'
+                      : 'Save Service'
+                    : 'Continue'
+                }
                 onPress={handleContinue}
                 disabled={
-                  step === 0
+                  isTurfCategory()
+                    ? savingService
+                    : step === 0
                     ? !isDetailsStepValid
                     : step === 1
                     ? !isPricingStepValid
@@ -946,7 +1205,6 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
               />
             </View>
           </View>
-        </TouchableWithoutFeedback>
 
           {/* Category selection bottom sheet (same pattern as onboarding) */}
           <Modal
@@ -1307,10 +1565,6 @@ const styles = StyleSheet.create({
   sectionDividerThick: {
     height: ms(1),
     backgroundColor: colors.border.dark,
-  },
-  sectionDividerTight: {
-    marginTop: vs(8),
-    marginBottom: vs(12),
   },
   sectionDividerExtraTight: {
     marginTop: vs(4),

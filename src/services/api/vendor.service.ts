@@ -11,6 +11,20 @@ import type { ApiResponse } from '../../types/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
+ * Category
+ */
+export interface Category {
+  _id: string;
+  slug: string;
+  name: string;
+  image: string;
+  order: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * Business Setup Request Payload
  */
 export interface BusinessSetupRequest {
@@ -226,6 +240,26 @@ export interface VendorData {
  * Provides methods for vendor onboarding operations
  */
 class VendorService {
+  /**
+   * Get active business categories
+   * @returns Promise with categories list
+   */
+  async getCategories(): Promise<ApiResponse<Category[]>> {
+    try {
+      const response = await apiClient.get<Category[]>(
+        API_ENDPOINTS.CATEGORY.LIST,
+        {
+          // Categories are public; no auth strictly required, but we can keep default behaviour
+          skipAuth: true,
+        }
+      );
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
   /**
    * Get vendor data by userId
    * @param userId - User ID
@@ -489,6 +523,58 @@ class VendorService {
   }
 
   /**
+   * Add category-based service (e.g., Turf)
+   * @param userId - User ID
+   * @param serviceData - Category-based service data
+   * @returns Promise with add service response
+   */
+  async addCategoryService(
+    userId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      serviceDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      price: number;
+      priceUnitLabel?: string;
+      serviceFor: 'male' | 'female' | 'mixed';
+      amenities?: string[];
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate serviceData is not null/undefined
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload
+      const payload = {
+        category: serviceData.category,
+        serviceName: serviceData.serviceName.trim(),
+        serviceDurationInMinutes: serviceData.serviceDurationInMinutes,
+        bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+        price: serviceData.price,
+        priceUnitLabel: serviceData.priceUnitLabel || 'per person',
+        serviceFor: serviceData.serviceFor,
+        ...(serviceData.amenities && serviceData.amenities.length > 0 && {
+          amenities: serviceData.amenities,
+        }),
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/add-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
    * Upload service image
    * Two-step process:
    * 1. Upload image file to get URL
@@ -570,6 +656,7 @@ class VendorService {
       let uploadResponse: Response;
       try {
         if (__DEV__) {
+          // eslint-disable-next-line no-console
           console.log('[UploadServiceImage] Uploading image:', {
             userId,
             serviceId,
@@ -592,9 +679,9 @@ class VendorService {
           }
         );
       } catch (fetchError) {
-        if (__DEV__) {
-          console.error('[UploadServiceImage] Fetch error:', fetchError);
-        }
+      if (__DEV__) {
+        console.error('[UploadServiceImage] Fetch error:', fetchError);
+      }
         throw new Error(
           fetchError instanceof Error && (fetchError.message.includes('Network request failed') || fetchError.message.includes('cannot parse response'))
             ? 'Network request failed. Please check your internet connection and try again.'
@@ -633,6 +720,7 @@ class VendorService {
 
       const uploadRaw = await uploadResponse.text();
       if (__DEV__) {
+        // eslint-disable-next-line no-console
         console.log('[UploadServiceImage] UPLOAD RAW RESPONSE:', uploadRaw);
       }
 
@@ -908,6 +996,7 @@ class VendorService {
       let uploadResponse: Response;
       try {
         if (__DEV__) {
+          // eslint-disable-next-line no-console
           console.log('[UploadBusinessDocument] Uploading document:', {
             userId,
             documentUri,
@@ -962,6 +1051,7 @@ class VendorService {
 
       const uploadRaw = await uploadResponse.text();
       if (__DEV__) {
+        // eslint-disable-next-line no-console
         console.log('[UploadBusinessDocument] UPLOAD RAW RESPONSE:', uploadRaw);
       }
 
@@ -1096,6 +1186,7 @@ class VendorService {
       let uploadResponse: Response;
       try {
         if (__DEV__) {
+          // eslint-disable-next-line no-console
           console.log('[UploadBusinessImages] Uploading images:', {
             userId,
             imageCount: allImages.length,
@@ -1149,6 +1240,7 @@ class VendorService {
 
       const uploadRaw = await uploadResponse.text();
       if (__DEV__) {
+        // eslint-disable-next-line no-console
         console.log('[UploadBusinessImages] UPLOAD RAW RESPONSE:', uploadRaw);
       }
 
@@ -1310,6 +1402,7 @@ class VendorService {
       let uploadResponse: Response;
       try {
         if (__DEV__) {
+          // eslint-disable-next-line no-console
           console.log('[UpdateServiceImage] Uploading image:', {
             userId,
             serviceId,
@@ -1373,6 +1466,7 @@ class VendorService {
 
       const uploadRaw = await uploadResponse.text();
       if (__DEV__) {
+        // eslint-disable-next-line no-console
         console.log('[UpdateServiceImage] UPLOAD RAW RESPONSE:', uploadRaw);
       }
 

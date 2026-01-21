@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,7 @@ import InfoIcon from '../../assets/svg/icons/info.svg';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/fonts';
 import { hs, vs, ms } from '../../theme/scaling';
-import { vendorService, type CustomAxiosError } from '../../services/api';
+import { vendorService, type CustomAxiosError, type Category } from '../../services/api';
 import { showError } from '../../utils/flashMessage';
 import { userStorage } from '../../utils/storage';
 
@@ -39,6 +39,7 @@ type BusinessSetupProps = AuthStackScreenProps<'BusinessSetup'>;
  */
 const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
   const [businessName, setBusinessName] = useState('');
+  // Store the selected category slug (used when calling the API)
   const [businessCategory, setBusinessCategory] = useState<string>();
   const [businessType, setBusinessType] = useState<string>();
   const [openSelector, setOpenSelector] = useState<'category' | 'type' | null>(null);
@@ -46,25 +47,67 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
   const [activeInfoOption, setActiveInfoOption] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [errors, setErrors] = useState<{
     businessName?: string;
     businessCategory?: string;
     businessType?: string;
   }>({});
 
-  // Get userId on component mount
+  // Get userId and categories on component mount
   useEffect(() => {
     const loadUserId = async () => {
       const id = await userStorage.getUserId();
       setUserId(id);
     };
+    const loadCategories = async () => {
+      try {
+        setIsLoadingCategories(true);
+        const response = await vendorService.getCategories();
+        if (response.success && Array.isArray(response.data)) {
+          // Only keep active categories and sort by order
+          const activeCategories = response.data
+            .filter((category) => category.isActive)
+            .sort((a, b) => a.order - b.order);
+          setCategories(activeCategories);
+        } else {
+          showError('Failed to load categories. Please try again.');
+        }
+      } catch (error) {
+        const apiError = error as CustomAxiosError;
+        const errorMessage =
+          apiError.response?.data?.message ||
+          apiError.response?.data?.error ||
+          'Failed to load categories. Please check your internet connection and try again.';
+        showError(errorMessage);
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+
     loadUserId();
+    loadCategories();
   }, []);
 
   const isFormComplete =
     businessName.trim().length > 0 && Boolean(businessCategory) && Boolean(businessType);
 
-  const businessCategories = ['Turf', 'Swimming pool', 'Saloon', 'Beauty parlor', 'Spa'];
+  // Map categories for UI
+  // - We store slug in state (businessCategory)
+  // - We show the corresponding name in the dropdown field
+  const businessCategories = useMemo(
+    () => categories.map((category) => category.slug),
+    [categories]
+  );
+
+  const getCategoryNameFromSlug = (slug?: string) => {
+    if (!slug) {
+      return undefined;
+    }
+    const match = categories.find((category) => category.slug === slug);
+    return match?.name ?? slug;
+  };
   const businessTypes = ['Individual', 'Storefront', 'Franchise'];
   const businessTypeInfo: Record<string, string> = {
     Individual: 'You work alone (no shop)',
@@ -239,9 +282,11 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
             />
             <OnboardingDropdownField
               label="Business category"
-              placeholder="Select your category"
+              placeholder={
+                isLoadingCategories ? 'Loading categories...' : 'Select your category'
+              }
               required
-              value={businessCategory}
+              value={getCategoryNameFromSlug(businessCategory)}
               onPress={handleCategoryPress}
               errorText={errors.businessCategory}
               marginBottom={vs(4)}
@@ -286,6 +331,10 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>{selectorTitle}</Text>
                 {selectorOptions.map((option) => {
+                  const optionLabel =
+                    openSelector === 'category'
+                      ? (getCategoryNameFromSlug(option) ?? option)
+                      : option;
                   const optionInfoText =
                     openSelector === 'type' ? businessTypeInfo[option] : undefined;
                   return (
@@ -297,7 +346,7 @@ const BusinessSetup: React.FC<BusinessSetupProps> = ({ navigation }) => {
                           setActiveInfoOption(null);
                         }}
                       >
-                        <Text style={styles.optionText}>{option}</Text>
+                        <Text style={styles.optionText}>{optionLabel}</Text>
                         {optionInfoText && (
                           <TouchableOpacity
                             onPress={() =>
