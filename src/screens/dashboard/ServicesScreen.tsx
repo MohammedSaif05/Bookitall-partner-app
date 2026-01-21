@@ -338,7 +338,7 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
                               ? (service as any).pricePerPerson || 0
                               : service.category === 'spa'
                               ? service.price || 0
-                              : service.category === 'beauty-parlour' || service.category === 'beauty parlour'
+                              : service.category === 'beauty-parlor'
                               ? service.price || 0
                               : service.serviceCost || 0}
                           </Text>
@@ -351,7 +351,7 @@ const ServicesScreen: React.FC<ServicesScreenProps> = ({ navigation }) => {
                               ? `${service.slotDurationInMinutes || 0} mins`
                               : service.category === 'spa'
                               ? `${service.serviceDurationInMinutes || 0} mins`
-                              : service.category === 'beauty-parlour' || service.category === 'beauty parlour'
+                              : service.category === 'beauty-parlor'
                               ? `${service.serviceDurationInMinutes || 0} mins`
                               : `${service.serviceDuration || 0} mins`}
                           </Text>
