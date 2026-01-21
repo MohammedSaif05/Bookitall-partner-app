@@ -17,3 +17,6 @@ export type { SwimmingPoolServiceFormData } from './SwimmingPoolServiceForm';
 export { default as SpaServiceForm } from './SpaServiceForm';
 export type { SpaServiceFormData } from './SpaServiceForm';
 
+export { default as BeautyParlourServiceForm } from './BeautyParlourServiceForm';
+export type { BeautyParlourServiceFormData } from './BeautyParlourServiceForm';
+

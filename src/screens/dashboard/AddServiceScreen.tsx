@@ -31,7 +31,7 @@ import BackIcon from '../../assets/svg/icons/back.svg';
 import InfoIcon from '../../assets/svg/icons/info.svg';
 import UploadDocumentIcon from '../../assets/svg/icons/upload_document.svg';
 import { OnboardingCTAButton, OnboardingDropdownField } from '../../components/onboarding';
-import { TurfServiceForm, type TurfServiceFormData, SaloonServiceForm, type SaloonServiceFormData, SwimmingPoolServiceForm, type SwimmingPoolServiceFormData, SpaServiceForm, type SpaServiceFormData } from '../../components/serviceForms';
+import { TurfServiceForm, type TurfServiceFormData, SaloonServiceForm, type SaloonServiceFormData, SwimmingPoolServiceForm, type SwimmingPoolServiceFormData, SpaServiceForm, type SpaServiceFormData, BeautyParlourServiceForm, type BeautyParlourServiceFormData } from '../../components/serviceForms';
 import type { RootStackScreenProps } from '../../navigation/types';
 import { vendorService, type StaffMember, type VendorData } from '../../services/api/vendor.service';
 import { userStorage } from '../../utils/storage';
@@ -118,6 +118,10 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
           const response = await vendorService.getVendorByUserId(userId);
           if (response.success && response.data) {
             setVendorData(response.data);
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.log('Vendor data loaded:', { businessCategory: response.data.businessCategory });
+            }
           }
         }
       } catch (error) {
@@ -177,6 +181,17 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     // Check vendorData business category (for add mode)
     if (!vendorData?.businessCategory) return false;
     return vendorData.businessCategory.toLowerCase() === 'spa';
+  };
+
+  // Check if we should use category-based form (e.g., Beauty Parlor)
+  const isBeautyParlourCategory = () => {
+    // Check editService category first (for edit mode)
+    if (editService?.category) {
+      return editService.category.toLowerCase().trim() === 'beauty-parlor';
+    }
+    // Check vendorData business category (for add mode)
+    if (!vendorData?.businessCategory) return false;
+    return vendorData.businessCategory.toLowerCase().trim() === 'beauty-parlor';
   };
 
   // Turf service form data - initialize from editService if in edit mode and category is turf
@@ -272,6 +287,34 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   });
   const [spaFormErrors, setSpaFormErrors] = useState<Partial<Record<keyof SpaServiceFormData, string>>>({});
 
+  // Beauty Parlour service form data - initialize from editService if in edit mode and category is beauty-parlor
+  const [beautyParlourFormData, setBeautyParlourFormData] = useState<Partial<BeautyParlourServiceFormData>>(() => {
+    if (editService && editService.category.toLowerCase().trim() === 'beauty-parlor') {
+      // Map editService fields to beauty parlour form data
+      // Handle serviceFor: API returns 'male'|'female'|'mixed', form uses 'male'|'female'|'both'
+      let serviceForValue: 'male' | 'female' | 'both' = 'both';
+      if ((editService as any).serviceFor) {
+        serviceForValue = (editService as any).serviceFor === 'mixed' ? 'both' : ((editService as any).serviceFor as 'male' | 'female' | 'both');
+      } else if (editService.gender) {
+        serviceForValue = editService.gender === 'mixed' ? 'both' : (editService.gender as 'male' | 'female' | 'both');
+      }
+
+      return {
+        serviceName: editService.serviceName || '',
+        serviceDurationInMinutes: editService.serviceDurationInMinutes || editService.serviceDuration || 0,
+        bufferTimeInMinutes: editService.bufferTimeInMinutes || editService.bufferTime || 0,
+        price: (editService as any).price || editService.serviceCost || 0,
+        serviceFor: serviceForValue,
+        maxConcurrentSessions: (editService as any).maxConcurrentSessions || editService.maximumNo || 0,
+        beauticianLevel: (editService as any).beauticianLevel,
+        treatmentCategory: (editService as any).treatmentCategory,
+        productsUsed: (editService as any).productsUsed || [],
+      };
+    }
+    return {};
+  });
+  const [beautyParlourFormErrors, setBeautyParlourFormErrors] = useState<Partial<Record<keyof BeautyParlourServiceFormData, string>>>({});
+
   // Stable onChange to avoid infinite update loops (child useEffect depends on onChange)
   const handleTurfFormChange = useCallback((data: Partial<TurfServiceFormData>) => {
     setTurfFormData((prev) => {
@@ -320,6 +363,21 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
   // Stable onChange for spa form
   const handleSpaFormChange = useCallback((data: Partial<SpaServiceFormData>) => {
     setSpaFormData((prev) => {
+      // If nothing actually changed, keep previous object to avoid re-renders
+      const next = { ...prev, ...data };
+      const keys = Object.keys(next) as Array<keyof typeof next>;
+      for (const key of keys) {
+        if (prev[key] !== next[key]) {
+          return next;
+        }
+      }
+      return prev;
+    });
+  }, []);
+
+  // Stable onChange for beauty parlour form
+  const handleBeautyParlourFormChange = useCallback((data: Partial<BeautyParlourServiceFormData>) => {
+    setBeautyParlourFormData((prev) => {
       // If nothing actually changed, keep previous object to avoid re-renders
       const next = { ...prev, ...data };
       const keys = Object.keys(next) as Array<keyof typeof next>;
@@ -382,6 +440,18 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     if (!spaFormData.price || spaFormData.price <= 0) return false;
     if (!spaFormData.therapistGender) return false;
     if (!spaFormData.maxConcurrentSessions || spaFormData.maxConcurrentSessions <= 0) return false;
+    if (!primaryImage) return false; // Image is required
+    return true;
+  };
+
+  // Check if beauty parlour form is valid (all fields filled + image selected)
+  const isBeautyParlourFormValid = () => {
+    if (!beautyParlourFormData.serviceName?.trim()) return false;
+    if (!beautyParlourFormData.serviceDurationInMinutes || beautyParlourFormData.serviceDurationInMinutes <= 0) return false;
+    if (beautyParlourFormData.bufferTimeInMinutes === undefined || beautyParlourFormData.bufferTimeInMinutes < 0) return false;
+    if (!beautyParlourFormData.price || beautyParlourFormData.price <= 0) return false;
+    if (!beautyParlourFormData.serviceFor) return false;
+    if (!beautyParlourFormData.maxConcurrentSessions || beautyParlourFormData.maxConcurrentSessions <= 0) return false;
     if (!primaryImage) return false; // Image is required
     return true;
   };
@@ -483,6 +553,12 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     // For spa category, we use a single-step form
     if (isSpaCategory()) {
       handleSaveSpaService();
+      return;
+    }
+
+    // For beauty parlour category, we use a single-step form
+    if (isBeautyParlourCategory()) {
+      handleSaveBeautyParlourService();
       return;
     }
 
@@ -1340,6 +1416,216 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
     }
   };
 
+  const handleSaveBeautyParlourService = async () => {
+    // Validate beauty parlour form data
+    const errors: Partial<Record<keyof BeautyParlourServiceFormData, string>> = {};
+    
+    if (!beautyParlourFormData.serviceName?.trim()) {
+      errors.serviceName = 'Please enter service name';
+    }
+    if (!beautyParlourFormData.serviceDurationInMinutes || beautyParlourFormData.serviceDurationInMinutes <= 0) {
+      errors.serviceDurationInMinutes = 'Please enter valid service duration';
+    }
+    if (beautyParlourFormData.bufferTimeInMinutes === undefined || beautyParlourFormData.bufferTimeInMinutes < 0) {
+      errors.bufferTimeInMinutes = 'Please enter valid buffer time';
+    }
+    if (!beautyParlourFormData.price || beautyParlourFormData.price <= 0) {
+      errors.price = 'Please enter valid price';
+    }
+    if (!beautyParlourFormData.serviceFor) {
+      errors.serviceFor = 'Please select service for';
+    }
+    if (!beautyParlourFormData.maxConcurrentSessions || beautyParlourFormData.maxConcurrentSessions <= 0) {
+      errors.maxConcurrentSessions = 'Please enter valid max concurrent sessions';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setBeautyParlourFormErrors(errors);
+      return;
+    }
+
+    setBeautyParlourFormErrors({});
+
+    try {
+      setSavingService(true);
+      const userId = await userStorage.getUserId();
+      
+      if (!userId) {
+        showError('User ID not found. Please login again.');
+        setSavingService(false);
+        return;
+      }
+
+      // Prepare beauty parlour service data
+      // Handle serviceFor: form uses 'both', API expects 'mixed'
+      const serviceForValue: 'male' | 'female' | 'mixed' = 
+        beautyParlourFormData.serviceFor === 'both'
+          ? 'mixed'
+          : beautyParlourFormData.serviceFor === 'male'
+          ? 'male'
+          : 'female';
+
+      const serviceData = {
+        category: 'beauty-parlor',
+        serviceName: beautyParlourFormData.serviceName!.trim(),
+        serviceDurationInMinutes: beautyParlourFormData.serviceDurationInMinutes!,
+        bufferTimeInMinutes: beautyParlourFormData.bufferTimeInMinutes!,
+        price: beautyParlourFormData.price!,
+        priceUnitLabel: 'per session',
+        serviceFor: serviceForValue,
+        maxConcurrentSessions: beautyParlourFormData.maxConcurrentSessions!,
+        beauticianLevel: beautyParlourFormData.beauticianLevel,
+        treatmentCategory: beautyParlourFormData.treatmentCategory,
+        productsUsed: beautyParlourFormData.productsUsed && beautyParlourFormData.productsUsed.length > 0 
+          ? beautyParlourFormData.productsUsed 
+          : undefined,
+      };
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Adding beauty parlour service with payload:',
+          JSON.stringify(serviceData, null, 2)
+        );
+      }
+
+      if (isEditMode) {
+        // EDIT MODE: Update existing beauty parlour service
+        if (!serviceId || serviceId.trim() === '') {
+          showError('Service ID not found. Cannot update service.');
+          setSavingService(false);
+          return;
+        }
+
+        const response = await vendorService.updateBeautyParlourService(
+          userId,
+          serviceId,
+          serviceData
+        );
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Update beauty parlour service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to update service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Update image if it changed
+        if (primaryImage && primaryImage !== originalImageUri) {
+          try {
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.log('Updating image for serviceId:', serviceId);
+            }
+            const imageResponse = await vendorService.updateServiceImage(
+              userId,
+              serviceId,
+              primaryImage
+            );
+
+            if (imageResponse.success) {
+              if (__DEV__) {
+                // eslint-disable-next-line no-console
+                console.log('Image updated successfully');
+              }
+            } else {
+              if (__DEV__) {
+                console.warn('Image update failed, but service was updated');
+              }
+            }
+          } catch (imageError) {
+            if (__DEV__) {
+              console.error('Image update error:', imageError);
+            }
+          }
+        }
+
+        showSuccess('Service updated successfully!');
+        navigation.navigate('Services');
+      } else {
+        // ADD MODE: Create new beauty parlour service
+        const response = await vendorService.addBeautyParlourService(userId, serviceData);
+
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(
+            'Add beauty parlour service API response:',
+            JSON.stringify(response, null, 2)
+          );
+        }
+
+        if (!response.success) {
+          showError('Failed to add service. Please try again.');
+          setSavingService(false);
+          return;
+        }
+
+        // Upload image if provided
+        if (primaryImage && response.data) {
+          const responseData = response.data as any;
+          let newServiceId: string | undefined;
+          
+          // Extract serviceId from response
+          if (responseData.services && Array.isArray(responseData.services) && responseData.services.length > 0) {
+            const lastService = responseData.services[responseData.services.length - 1];
+            newServiceId = lastService.serviceId;
+          } else if (responseData.serviceId) {
+            newServiceId = responseData.serviceId;
+          }
+          
+          if (newServiceId) {
+            try {
+              // Delay to ensure service is fully saved
+              await new Promise<void>(resolve => setTimeout(() => resolve(), 2000));
+              
+              const imageResponse = await vendorService.uploadServiceImage(
+                userId,
+                newServiceId,
+                primaryImage
+              );
+
+              if (!imageResponse.success) {
+                if (__DEV__) {
+                  console.warn('Image upload failed, but service was created');
+                }
+              }
+            } catch (imageError) {
+              if (__DEV__) {
+                console.error('Image upload error:', imageError);
+              }
+            }
+          }
+        }
+
+        showSuccess('Service added successfully!');
+        navigation.navigate('Services');
+      }
+    } catch (error) {
+      const axiosError = error as CustomAxiosError;
+      const errorMessage =
+        axiosError.response?.data?.message || 'Failed to add service. Please try again.';
+
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Add beauty parlour service API error:',
+          JSON.stringify(axiosError.response?.data ?? error, null, 2)
+        );
+      }
+
+      showError(errorMessage);
+    } finally {
+      setSavingService(false);
+    }
+  };
+
   const handleSaveService = async () => {
     try {
       setSavingService(true);
@@ -1883,6 +2169,59 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                       )}
                     </TouchableOpacity>
               </ScrollView>
+            ) : isBeautyParlourCategory() ? (
+              // Beauty Parlour category form - single step
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
+                bounces={true}
+              >
+                    <Text style={styles.sectionTitle}>Service Details</Text>
+                    <BeautyParlourServiceForm
+                      initialData={beautyParlourFormData}
+                      onChange={handleBeautyParlourFormChange}
+                      errors={beautyParlourFormErrors}
+                    />
+                    
+                    <View style={[styles.sectionDivider, styles.sectionDividerThick]} />
+                    
+                    {/* Images */}
+                    <Text style={styles.sectionTitle}>
+                      Service Image<Text style={styles.asterisk}> *</Text>
+                    </Text>
+                    <Text style={styles.imagesInstruction}>
+                      Upload service image (required)
+                    </Text>
+
+                    {/* Primary Image Upload */}
+                    <TouchableOpacity
+                      style={styles.imageUploadArea}
+                      activeOpacity={0.8}
+                      onPress={handleImageUpload}
+                    >
+                      {primaryImage ? (
+                        <Image source={{ uri: primaryImage }} style={styles.uploadedImage} />
+                      ) : (
+                        <View style={styles.imageUploadContent}>
+                          <View style={styles.uploadIconContainer}>
+                            <UploadDocumentIcon
+                              width={hs(48)}
+                              height={vs(48)}
+                              stroke={colors.text.secondary}
+                            />
+                          </View>
+                          <Text style={styles.uploadText}>Upload Image</Text>
+                          <Text style={styles.uploadHint}>
+                            Tap to select an image from your gallery
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+              </ScrollView>
             ) : (
               // Regular multi-step form for other categories
               <ScrollView
@@ -2263,13 +2602,13 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                 onPress={handleCancel}
               >
                 <Text style={styles.cancelButtonText}>
-                  {isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory() || isSpaCategory() ? 'Cancel' : step === 0 ? 'Cancel' : 'Back'}
+                  {isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory() || isSpaCategory() || isBeautyParlourCategory() ? 'Cancel' : step === 0 ? 'Cancel' : 'Back'}
                 </Text>
               </TouchableOpacity>
 
               <OnboardingCTAButton
                 label={
-                  isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory() || isSpaCategory()
+                  isTurfCategory() || isSaloonCategory() || isSwimmingPoolCategory() || isSpaCategory() || isBeautyParlourCategory()
                     ? isEditMode
                       ? 'Update Service'
                       : 'Save Service'
@@ -2289,6 +2628,8 @@ const AddServiceScreen: React.FC<AddServiceScreenProps> = ({ navigation, route }
                     ? !isSwimmingPoolFormValid() || savingService
                     : isSpaCategory()
                     ? !isSpaFormValid() || savingService
+                    : isBeautyParlourCategory()
+                    ? !isBeautyParlourFormValid() || savingService
                     : step === 0
                     ? !isDetailsStepValid
                     : step === 1

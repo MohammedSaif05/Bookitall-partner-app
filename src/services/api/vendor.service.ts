@@ -186,6 +186,9 @@ export interface Service {
   maxConcurrentSessions?: number; // For spa services
   roomType?: string; // For spa services
   treatmentCategory?: string; // For spa services
+  // Beauty Parlour-specific fields
+  beauticianLevel?: string; // For beauty parlour services
+  productsUsed?: string[]; // For beauty parlour services
 }
 
 /**
@@ -1043,6 +1046,142 @@ class VendorService {
         }),
         ...(serviceData.treatmentCategory && {
           treatmentCategory: serviceData.treatmentCategory,
+        }),
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.UPDATE_SERVICE_JSON}/${userId}/update-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Add beauty parlour service
+   * @param userId - User ID
+   * @param serviceData - Beauty parlour service data
+   * @returns Promise with add service response
+   */
+  async addBeautyParlourService(
+    userId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      serviceDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      price: number;
+      priceUnitLabel: string;
+      serviceFor: 'male' | 'female' | 'mixed';
+      maxConcurrentSessions: number;
+      beauticianLevel?: string;
+      treatmentCategory?: string;
+      productsUsed?: string[];
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate serviceData is not null/undefined
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload matching backend contract: wrap inside `service`
+      const payload = {
+        service: {
+          category: serviceData.category,
+          serviceName: serviceData.serviceName.trim(),
+          serviceDurationInMinutes: serviceData.serviceDurationInMinutes,
+          bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+          price: serviceData.price,
+          priceUnitLabel: serviceData.priceUnitLabel,
+          serviceFor: serviceData.serviceFor,
+          maxConcurrentSessions: serviceData.maxConcurrentSessions,
+          ...(serviceData.beauticianLevel && {
+            beauticianLevel: serviceData.beauticianLevel,
+          }),
+          ...(serviceData.treatmentCategory && {
+            treatmentCategory: serviceData.treatmentCategory,
+          }),
+          ...(serviceData.productsUsed && serviceData.productsUsed.length > 0 && {
+            productsUsed: serviceData.productsUsed,
+          }),
+        },
+      };
+
+      // Make PATCH request with JSON payload
+      const response = await apiClient.patch<BusinessSetupResponseData>(
+        `${API_ENDPOINTS.VENDOR.ADD_SERVICE_JSON}/${userId}/add-service-json`,
+        payload
+      );
+
+      return response;
+    } catch (error) {
+      // Error is already handled by interceptor
+      throw error;
+    }
+  }
+
+  /**
+   * Update beauty parlour service
+   * @param userId - User ID
+   * @param serviceId - Service ID to update
+   * @param serviceData - Updated beauty parlour service data
+   * @returns Promise with update response
+   */
+  async updateBeautyParlourService(
+    userId: string,
+    serviceId: string,
+    serviceData: {
+      category: string;
+      serviceName: string;
+      serviceDurationInMinutes: number;
+      bufferTimeInMinutes: number;
+      price: number;
+      priceUnitLabel: string;
+      serviceFor: 'male' | 'female' | 'mixed';
+      maxConcurrentSessions: number;
+      beauticianLevel?: string;
+      treatmentCategory?: string;
+      productsUsed?: string[];
+    }
+  ): Promise<ApiResponse<BusinessSetupResponseData>> {
+    try {
+      // Validate inputs
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      if (!serviceId) {
+        throw new Error('Service ID is required');
+      }
+      if (!serviceData) {
+        throw new Error('Service data is required');
+      }
+
+      // Prepare payload with userId, serviceId, and service data
+      const payload = {
+        userId,
+        serviceId,
+        category: serviceData.category,
+        serviceName: serviceData.serviceName.trim(),
+        serviceDurationInMinutes: serviceData.serviceDurationInMinutes,
+        bufferTimeInMinutes: serviceData.bufferTimeInMinutes,
+        price: serviceData.price,
+        priceUnitLabel: serviceData.priceUnitLabel,
+        serviceFor: serviceData.serviceFor,
+        maxConcurrentSessions: serviceData.maxConcurrentSessions,
+        ...(serviceData.beauticianLevel && {
+          beauticianLevel: serviceData.beauticianLevel,
+        }),
+        ...(serviceData.treatmentCategory && {
+          treatmentCategory: serviceData.treatmentCategory,
+        }),
+        ...(serviceData.productsUsed && serviceData.productsUsed.length > 0 && {
+          productsUsed: serviceData.productsUsed,
         }),
       };
 

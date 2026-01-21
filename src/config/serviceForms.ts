@@ -136,6 +136,68 @@ export const THERAPIST_GENDER_OPTIONS: Array<{ label: string; value: string }> =
 ];
 
 /**
+ * Beautician levels for Beauty Parlour services
+ */
+export const BEAUTICIAN_LEVELS = [
+  'Junior',
+  'Senior',
+  'Expert',
+  'Master',
+  'Specialist',
+] as const;
+
+/**
+ * Treatment categories for Beauty Parlour services
+ */
+export const BEAUTY_PARLOUR_TREATMENT_CATEGORIES = [
+  'Facial',
+  'Haircut',
+  'Hair Styling',
+  'Hair Coloring',
+  'Hair Treatment',
+  'Manicure',
+  'Pedicure',
+  'Waxing',
+  'Threading',
+  'Bleach',
+  'Cleanup',
+  'Makeup',
+  'Bridal Makeup',
+  'Party Makeup',
+  'Hair Spa',
+  'Head Massage',
+  'Hair Wash',
+  'Other',
+] as const;
+
+/**
+ * Common beauty products brands
+ */
+export const BEAUTY_PRODUCTS = [
+  'Lakme',
+  'O3+',
+  'L\'Oreal',
+  'Maybelline',
+  'Revlon',
+  'MAC',
+  'Clinique',
+  'Estee Lauder',
+  'Lakme Absolute',
+  'Ponds',
+  'Garnier',
+  'VLCC',
+  'Kaya',
+  'Biotique',
+  'Forest Essentials',
+  'The Body Shop',
+  'Nykaa',
+  'Sugar',
+  'Colorbar',
+  'Faces',
+  'Other',
+] as const;
+
+/**
  * Service Form Field Configuration
  */
 export interface ServiceFormField {
